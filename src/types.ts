@@ -11,6 +11,23 @@ export interface ComponentInfo {
   location: SourceLocation | null;
 }
 
+// ── Snippet response from server ─────────────────────────────────────
+
+export interface SnippetResponse {
+  /** Relative file path */
+  file: string;
+  /** Extracted source code lines */
+  snippet: string;
+  /** First line number in the snippet (1-based) */
+  startLine: number;
+  /** Last line number in the snippet (1-based) */
+  endLine: number;
+  /** The target line number that was requested (1-based) */
+  targetLine: number;
+  /** Language identifier derived from file extension */
+  language: string;
+}
+
 // ── Grabbed context payload ──────────────────────────────────────────
 
 export interface GrabbedContext {
@@ -26,6 +43,8 @@ export interface GrabbedContext {
   formatted: string;
   /** Timestamp */
   timestamp: number;
+  /** Server-side source code snippet, if available */
+  snippet?: SnippetResponse;
 }
 
 // ── Configuration ────────────────────────────────────────────────────

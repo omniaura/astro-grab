@@ -9,13 +9,13 @@
  */
 
 import { Overlay } from "./overlay.js";
-import { inspect, findNearestSource, findNearestComponent } from "./inspector.js";
+import { inspect, findNearestSource, findNearestComponent, fetchSnippet, formatContext } from "./inspector.js";
 import { AgentBridge } from "./agent-bridge.js";
 import { StateMachine } from "./state-machine.js";
 import type { AstroGrabOptions, GrabbedContext } from "./types.js";
 
-export type { AstroGrabOptions, GrabbedContext, SourceLocation, ComponentInfo } from "./types.js";
-export { inspect } from "./inspector.js";
+export type { AstroGrabOptions, GrabbedContext, SourceLocation, ComponentInfo, SnippetResponse } from "./types.js";
+export { inspect, fetchSnippet } from "./inspector.js";
 export { StateMachine } from "./state-machine.js";
 export type { ClientState, StateListener } from "./state-machine.js";
 
@@ -99,7 +99,7 @@ function onMouseMove(e: MouseEvent) {
   overlay.updateCrosshair(e.clientX, e.clientY);
 }
 
-function onMouseDown(e: MouseEvent) {
+async function onMouseDown(e: MouseEvent) {
   if (stateMachine.getState() !== "targeting") return;
 
   const target = findGrabbableTarget(e.target);
@@ -111,6 +111,17 @@ function onMouseDown(e: MouseEvent) {
 
   // Inspect the element
   const context = inspect(target);
+
+  // Attempt to fetch a source snippet from the dev server
+  if (context.elementSource) {
+    const sourceAttr = `${context.elementSource.file}:${context.elementSource.line}:${context.elementSource.column}`;
+    const snippet = await fetchSnippet(sourceAttr);
+    if (snippet) {
+      context.snippet = snippet;
+      // Re-format with the snippet included
+      context.formatted = formatContext(context);
+    }
+  }
 
   // Fire callback
   const shouldCopy = opts.onGrab?.(context) !== false;
