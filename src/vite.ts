@@ -20,6 +20,7 @@
 
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
 import type { AstroGrabViteOptions } from "./types.js";
+import { createSnippetMiddleware } from "./snippet-server.js";
 
 const VIRTUAL_INIT = "virtual:astro-grab-init";
 const RESOLVED_VIRTUAL_INIT = "\0" + VIRTUAL_INIT;
@@ -304,12 +305,17 @@ export default function astroGrabVite(
     },
 
     configureServer(server: ViteDevServer) {
+      // Rewrite virtual module URL
       server.middlewares.use((req: { url?: string }, _res: unknown, next: () => void) => {
         if (req.url === "/@astro-grab/init") {
           req.url = `/@id/${VIRTUAL_INIT}`;
         }
         next();
       });
+
+      // Register snippet extraction middleware
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      server.middlewares.use(createSnippetMiddleware(projectRoot) as any);
     },
 
     transformIndexHtml() {

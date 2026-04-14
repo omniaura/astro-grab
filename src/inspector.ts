@@ -13,6 +13,7 @@ import {
   type SourceLocation,
   type ComponentInfo,
   type GrabbedContext,
+  type SnippetResponse,
 } from "./types.js";
 
 // ── Source location parsing ──────────────────────────────────────────
@@ -99,6 +100,29 @@ export function getComponentChain(el: HTMLElement): ComponentInfo[] {
   return chain;
 }
 
+// ── Server snippet fetching ──────────────────────────────────────────
+
+/**
+ * Fetch a source code snippet from the dev server's snippet endpoint.
+ *
+ * @param sourceAttr - The data-astro-source attribute value (e.g. "src/Page.astro:5:3")
+ * @param contextLines - Number of lines above/below the target line to include
+ * @returns The snippet response, or null if the fetch fails
+ */
+export async function fetchSnippet(
+  sourceAttr: string,
+  contextLines = 5,
+): Promise<SnippetResponse | null> {
+  try {
+    const url = `/__astro-grab/snippet?src=${encodeURIComponent(sourceAttr)}&contextLines=${contextLines}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    return (await response.json()) as SnippetResponse;
+  } catch {
+    return null;
+  }
+}
+
 // ── Context formatting ───────────────────────────────────────────────
 
 /**
@@ -166,10 +190,18 @@ export function formatContext(ctx: Omit<GrabbedContext, "formatted">): string {
     }
   }
 
-  // HTML snippet
-  lines.push("");
-  lines.push("HTML:");
-  lines.push(getElementSnippet(ctx.element, 500));
+  // Source snippet (if available) or HTML fallback
+  if (ctx.snippet) {
+    lines.push("");
+    lines.push(`Source (${ctx.snippet.language}, lines ${ctx.snippet.startLine}-${ctx.snippet.endLine}):`);
+    lines.push("```" + ctx.snippet.language);
+    lines.push(ctx.snippet.snippet);
+    lines.push("```");
+  } else {
+    lines.push("");
+    lines.push("HTML:");
+    lines.push(getElementSnippet(ctx.element, 500));
+  }
 
   lines.push("");
   lines.push("--- end astro-grab context ---");
