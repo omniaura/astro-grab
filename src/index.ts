@@ -28,6 +28,7 @@ let stateMachine: StateMachine;
 let opts: Required<Omit<AstroGrabOptions, "onGrab" | "agentUrl">> & Pick<AstroGrabOptions, "onGrab" | "agentUrl">;
 
 let hoveredEl: HTMLElement | null = null;
+let enabled = true;
 
 // ── Key handling ─────────────────────────────────────────────────────
 
@@ -42,9 +43,11 @@ function isActivationKey(e: KeyboardEvent): boolean {
 }
 
 function onKeyDown(e: KeyboardEvent) {
+  if (!enabled) return;
   if (!isActivationKey(e)) return;
 
   stateMachine.transition("targeting");
+  emitStateChange("targeting");
   overlay.setBadge(`\u26A1 astro-grab [${opts.key}]`);
   document.body.style.cursor = "crosshair";
 
@@ -58,6 +61,7 @@ function onKeyUp(e: KeyboardEvent) {
   if (!isActivationKey(e)) return;
 
   stateMachine.transition("idle");
+  emitStateChange("idle");
   overlay.setBadge("\u26A1 astro-grab");
   document.body.style.cursor = "";
   hoveredEl = null;
@@ -175,6 +179,54 @@ async function copyToClipboard(text: string) {
 function onBlur() {
   if (stateMachine.getState() === "targeting") {
     stateMachine.transition("idle");
+    emitStateChange("idle");
+    document.body.style.cursor = "";
+    hoveredEl = null;
+  }
+}
+
+// ── Toolbar communication ────────────────────────────────────────────
+
+function emitStateChange(state: string) {
+  window.dispatchEvent(
+    new CustomEvent("astro-grab:state-change", { detail: { state } })
+  );
+}
+
+function onToolbarToggle(e: Event) {
+  const detail = (e as CustomEvent<{ enabled: boolean }>).detail;
+  if (!detail) return;
+
+  enabled = detail.enabled;
+
+  if (!enabled) {
+    // Transition to idle and remove active state
+    if (stateMachine.getState() !== "idle") {
+      stateMachine.transition("idle");
+      emitStateChange("idle");
+      overlay.clearHighlight();
+      overlay.setBadge("\u26A1 astro-grab");
+      document.body.style.cursor = "";
+      hoveredEl = null;
+    }
+  }
+}
+
+function onToolbarConfigUpdate(e: Event) {
+  const detail = (e as CustomEvent<{ key?: string }>).detail;
+  if (!detail?.key) return;
+
+  const validKeys = ["Alt", "Control", "Meta", "Shift"];
+  if (!validKeys.includes(detail.key)) return;
+
+  opts.key = detail.key as "Alt" | "Control" | "Meta" | "Shift";
+
+  // If currently targeting, transition back to idle since the key changed
+  if (stateMachine.getState() === "targeting") {
+    stateMachine.transition("idle");
+    emitStateChange("idle");
+    overlay.clearHighlight();
+    overlay.setBadge("\u26A1 astro-grab");
     document.body.style.cursor = "";
     hoveredEl = null;
   }
@@ -221,6 +273,10 @@ function bootstrap() {
   document.addEventListener("click", onClick, true);
   window.addEventListener("blur", onBlur);
 
+  // Listen for toolbar CustomEvents
+  window.addEventListener("astro-grab:toggle", onToolbarToggle);
+  window.addEventListener("astro-grab:config-update", onToolbarConfigUpdate);
+
   // Connect agent bridge if URL provided
   if (opts.agentUrl) {
     bridge = new AgentBridge(opts.agentUrl);
@@ -247,11 +303,14 @@ export function destroyAstroGrab() {
   document.removeEventListener("mousedown", onMouseDown, true);
   document.removeEventListener("click", onClick, true);
   window.removeEventListener("blur", onBlur);
+  window.removeEventListener("astro-grab:toggle", onToolbarToggle);
+  window.removeEventListener("astro-grab:config-update", onToolbarConfigUpdate);
 
   stateMachine.reset();
   overlay.unmount();
   bridge?.disconnect();
   bridge = null;
+  enabled = true;
   document.body.style.cursor = "";
 }
 
