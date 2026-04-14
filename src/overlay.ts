@@ -100,6 +100,31 @@ const OVERLAY_STYLES = `
   }
 
   .astro-grab-badge:hover { opacity: 1; }
+
+  .astro-grab-crosshair {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2147483646;
+    display: none;
+  }
+
+  .astro-grab-crosshair-line {
+    position: absolute;
+    background: rgba(188, 82, 238, 0.4);
+    pointer-events: none;
+  }
+
+  .ag-crosshair-v {
+    width: 1px;
+  }
+
+  .ag-crosshair-h {
+    height: 1px;
+  }
 `;
 
 // ── Overlay class ────────────────────────────────────────────────────
@@ -110,9 +135,15 @@ export class Overlay {
   private tooltipEl: HTMLDivElement;
   private toastEl: HTMLDivElement;
   private badgeEl: HTMLDivElement;
+  private crosshairEl: HTMLDivElement;
+  private lineTop: HTMLDivElement;
+  private lineBottom: HTMLDivElement;
+  private lineLeft: HTMLDivElement;
+  private lineRight: HTMLDivElement;
   private toastTimeout: ReturnType<typeof setTimeout> | null = null;
   private _mounted = false;
   private unsubscribeState: (() => void) | null = null;
+  private lastHighlightRect: DOMRect | null = null;
 
   constructor() {
     this.styleEl = document.createElement("style");
@@ -132,6 +163,26 @@ export class Overlay {
     this.badgeEl = document.createElement("div");
     this.badgeEl.className = "astro-grab-badge";
     this.badgeEl.textContent = "\u26A1 astro-grab";
+
+    // Crosshair container + 4 directional lines
+    this.crosshairEl = document.createElement("div");
+    this.crosshairEl.className = "astro-grab-crosshair";
+
+    this.lineTop = this.createCrosshairLine("ag-crosshair-v");
+    this.lineBottom = this.createCrosshairLine("ag-crosshair-v");
+    this.lineLeft = this.createCrosshairLine("ag-crosshair-h");
+    this.lineRight = this.createCrosshairLine("ag-crosshair-h");
+
+    this.crosshairEl.appendChild(this.lineTop);
+    this.crosshairEl.appendChild(this.lineBottom);
+    this.crosshairEl.appendChild(this.lineLeft);
+    this.crosshairEl.appendChild(this.lineRight);
+  }
+
+  private createCrosshairLine(directionClass: string): HTMLDivElement {
+    const line = document.createElement("div");
+    line.className = `astro-grab-crosshair-line ${directionClass}`;
+    return line;
   }
 
   mount() {
@@ -143,6 +194,7 @@ export class Overlay {
     document.body.appendChild(this.tooltipEl);
     document.body.appendChild(this.toastEl);
     document.body.appendChild(this.badgeEl);
+    document.body.appendChild(this.crosshairEl);
   }
 
   unmount() {
@@ -157,6 +209,7 @@ export class Overlay {
     this.tooltipEl.remove();
     this.toastEl.remove();
     this.badgeEl.remove();
+    this.crosshairEl.remove();
   }
 
   /**
@@ -170,6 +223,9 @@ export class Overlay {
     this.unsubscribeState = sm.subscribe((state) => {
       if (state === "idle") {
         this.clearHighlight();
+        this.hideCrosshair();
+      } else if (state === "targeting") {
+        this.crosshairEl.style.display = "block";
       }
     });
   }
@@ -177,6 +233,7 @@ export class Overlay {
   /** Position the overlay highlight over a target element */
   highlight(el: HTMLElement) {
     const rect = el.getBoundingClientRect();
+    this.lastHighlightRect = rect;
     const s = this.overlayEl.style;
     s.display = "block";
     s.top = rect.top + "px";
@@ -189,6 +246,7 @@ export class Overlay {
   clearHighlight() {
     this.overlayEl.style.display = "none";
     this.tooltipEl.style.display = "none";
+    this.lastHighlightRect = null;
   }
 
   /** Show the tooltip near the highlighted element */
@@ -223,6 +281,45 @@ export class Overlay {
 
     this.tooltipEl.style.top = top + "px";
     this.tooltipEl.style.left = left + "px";
+  }
+
+  /**
+   * Update crosshair lines to extend between the cursor and the
+   * currently highlighted element's bounding rect edges.
+   * If no element is highlighted, hides the crosshair lines.
+   */
+  updateCrosshair(cursorX: number, cursorY: number) {
+    const rect = this.lastHighlightRect;
+    if (!rect) {
+      this.hideCrosshair();
+      return;
+    }
+
+    // Top line: from viewport top (0) to element top, at cursorX
+    this.lineTop.style.left = cursorX + "px";
+    this.lineTop.style.top = "0";
+    this.lineTop.style.height = Math.max(0, rect.top) + "px";
+
+    // Bottom line: from element bottom to viewport bottom, at cursorX
+    this.lineBottom.style.left = cursorX + "px";
+    this.lineBottom.style.top = rect.bottom + "px";
+    this.lineBottom.style.height = Math.max(0, window.innerHeight - rect.bottom) + "px";
+
+    // Left line: from viewport left (0) to element left, at cursorY
+    this.lineLeft.style.left = "0";
+    this.lineLeft.style.top = cursorY + "px";
+    this.lineLeft.style.width = Math.max(0, rect.left) + "px";
+
+    // Right line: from element right to viewport right, at cursorY
+    this.lineRight.style.left = rect.right + "px";
+    this.lineRight.style.top = cursorY + "px";
+    this.lineRight.style.width = Math.max(0, window.innerWidth - rect.right) + "px";
+  }
+
+  /** Hide all crosshair lines */
+  hideCrosshair() {
+    this.crosshairEl.style.display = "none";
+    this.lastHighlightRect = null;
   }
 
   /** Flash a toast notification */
