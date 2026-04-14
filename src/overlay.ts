@@ -7,6 +7,7 @@
  */
 
 import type { SourceLocation } from "./types.js";
+import type { StateMachine } from "./state-machine.js";
 
 // ── Styles ───────────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ export class Overlay {
   private badgeEl: HTMLDivElement;
   private toastTimeout: ReturnType<typeof setTimeout> | null = null;
   private _mounted = false;
+  private unsubscribeState: (() => void) | null = null;
 
   constructor() {
     this.styleEl = document.createElement("style");
@@ -147,11 +149,29 @@ export class Overlay {
     if (!this._mounted) return;
     this._mounted = false;
 
+    this.unsubscribeState?.();
+    this.unsubscribeState = null;
+
     this.styleEl.remove();
     this.overlayEl.remove();
     this.tooltipEl.remove();
     this.toastEl.remove();
     this.badgeEl.remove();
+  }
+
+  /**
+   * Wire the overlay to a state machine.
+   * `targeting` → show overlay elements, `idle` → hide overlay + clear highlight.
+   */
+  connectStateMachine(sm: StateMachine): void {
+    // Clean up any previous subscription
+    this.unsubscribeState?.();
+
+    this.unsubscribeState = sm.subscribe((state) => {
+      if (state === "idle") {
+        this.clearHighlight();
+      }
+    });
   }
 
   /** Position the overlay highlight over a target element */

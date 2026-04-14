@@ -11,19 +11,22 @@
 import { Overlay } from "./overlay.js";
 import { inspect, findNearestSource, findNearestComponent } from "./inspector.js";
 import { AgentBridge } from "./agent-bridge.js";
+import { StateMachine } from "./state-machine.js";
 import type { AstroGrabOptions, GrabbedContext } from "./types.js";
 
 export type { AstroGrabOptions, GrabbedContext, SourceLocation, ComponentInfo } from "./types.js";
 export { inspect } from "./inspector.js";
+export { StateMachine } from "./state-machine.js";
+export type { ClientState, StateListener } from "./state-machine.js";
 
 // ── State ────────────────────────────────────────────────────────────
 
 let initialized = false;
 let overlay: Overlay;
 let bridge: AgentBridge | null = null;
+let stateMachine: StateMachine;
 let opts: Required<Omit<AstroGrabOptions, "onGrab" | "agentUrl">> & Pick<AstroGrabOptions, "onGrab" | "agentUrl">;
 
-let keyHeld = false;
 let hoveredEl: HTMLElement | null = null;
 
 // ── Key handling ─────────────────────────────────────────────────────
@@ -40,7 +43,8 @@ function isActivationKey(e: KeyboardEvent): boolean {
 
 function onKeyDown(e: KeyboardEvent) {
   if (!isActivationKey(e)) return;
-  keyHeld = true;
+
+  stateMachine.transition("targeting");
   overlay.setBadge(`\u26A1 astro-grab [${opts.key}]`);
   document.body.style.cursor = "crosshair";
 
@@ -52,9 +56,9 @@ function onKeyDown(e: KeyboardEvent) {
 
 function onKeyUp(e: KeyboardEvent) {
   if (!isActivationKey(e)) return;
-  keyHeld = false;
+
+  stateMachine.transition("idle");
   overlay.setBadge("\u26A1 astro-grab");
-  overlay.clearHighlight();
   document.body.style.cursor = "";
   hoveredEl = null;
 }
@@ -85,7 +89,7 @@ function highlightElement(el: HTMLElement) {
 }
 
 function onMouseMove(e: MouseEvent) {
-  if (!keyHeld) return;
+  if (stateMachine.getState() !== "targeting") return;
 
   const target = findGrabbableTarget(e.target);
   if (!target) return;
@@ -95,7 +99,7 @@ function onMouseMove(e: MouseEvent) {
 }
 
 function onMouseDown(e: MouseEvent) {
-  if (!keyHeld) return;
+  if (stateMachine.getState() !== "targeting") return;
 
   const target = findGrabbableTarget(e.target);
   if (!target) return;
@@ -128,7 +132,7 @@ function onMouseDown(e: MouseEvent) {
 }
 
 function onClick(e: MouseEvent) {
-  if (!keyHeld) return;
+  if (stateMachine.getState() !== "targeting") return;
 
   // Block clicks on the underlying page while grabbing
   e.preventDefault();
@@ -157,9 +161,8 @@ async function copyToClipboard(text: string) {
 // ── Blur handling (key release when window loses focus) ──────────────
 
 function onBlur() {
-  if (keyHeld) {
-    keyHeld = false;
-    overlay.clearHighlight();
+  if (stateMachine.getState() === "targeting") {
+    stateMachine.transition("idle");
     document.body.style.cursor = "";
     hoveredEl = null;
   }
@@ -182,8 +185,10 @@ export function initAstroGrab(options: AstroGrabOptions = {}) {
     agentUrl: options.agentUrl,
   };
 
-  // Create overlay
+  // Create state machine and overlay
+  stateMachine = new StateMachine();
   overlay = new Overlay();
+  overlay.connectStateMachine(stateMachine);
 
   // Wait for DOM to be ready
   if (document.readyState === "loading") {
@@ -231,6 +236,7 @@ export function destroyAstroGrab() {
   document.removeEventListener("click", onClick, true);
   window.removeEventListener("blur", onBlur);
 
+  stateMachine.reset();
   overlay.unmount();
   bridge?.disconnect();
   bridge = null;
