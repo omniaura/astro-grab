@@ -25,6 +25,17 @@ export default defineConfig([
   },
   {
     entry: {
+      toolbar: "src/toolbar.ts",
+    },
+    format: "esm",
+    dts: true,
+    sourcemap: true,
+    external: ["astro", "vite"],
+    outDir: "dist",
+    clean: false,
+  },
+  {
+    entry: {
       integration: "src/integration.ts",
     },
     format: "esm",
