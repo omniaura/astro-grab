@@ -129,7 +129,7 @@ export default {
 
     const toggle = document.createElement(
       "astro-dev-toolbar-toggle"
-    ) as HTMLInputElement & { input: HTMLInputElement; toggleStyle: string };
+    ) as unknown as HTMLElement & { input: HTMLInputElement; toggleStyle: string };
     toggle.toggleStyle = config.enabled ? "green" : "gray";
     toggle.input.checked = config.enabled;
 
