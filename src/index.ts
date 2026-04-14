@@ -96,6 +96,7 @@ function onMouseMove(e: MouseEvent) {
 
   hoveredEl = target;
   highlightElement(target);
+  overlay.updateCrosshair(e.clientX, e.clientY);
 }
 
 function onMouseDown(e: MouseEvent) {
