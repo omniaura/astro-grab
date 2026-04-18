@@ -19,8 +19,11 @@
  */
 
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
+import { transformAstroFile } from "./astro-transform.js";
 import type { AstroGrabViteOptions } from "./types.js";
 import { createSnippetMiddleware } from "./snippet-server.js";
+
+export { transformAstroFile } from "./astro-transform.js";
 
 const VIRTUAL_INIT = "virtual:astro-grab-init";
 const RESOLVED_VIRTUAL_INIT = "\0" + VIRTUAL_INIT;
@@ -174,73 +177,6 @@ export function extractAstroTemplate(code: string): { templateStart: number; tem
   return { templateStart, template: code.slice(templateStart) };
 }
 
-/**
- * Transform an .astro file. Only the template section (after frontmatter) is modified.
- */
-export function transformAstroFile(
-  code: string,
-  fileId: string,
-  opts: { jsxLocation: boolean; componentLocation: boolean }
-): string {
-  const extracted = extractAstroTemplate(code);
-  if (!extracted) return code;
-
-  const { templateStart, template } = extracted;
-
-  // Compute a line offset so source locations are correct
-  const linesBeforeTemplate = code.slice(0, templateStart).split("\n").length - 1;
-
-  // We need line starts for the full file for correct positions
-  const lineStarts = computeLineStarts(code);
-  const shortFile = fileId.replace(/^\//, "");
-
-  let result = "";
-  let lastIndex = 0;
-
-  JSX_OPEN_TAG_RE.lastIndex = 0;
-
-  let match: RegExpExecArray | null;
-  while ((match = JSX_OPEN_TAG_RE.exec(template)) !== null) {
-    const fullMatch = match[0]!;
-    const prefix = match[1]!;
-    const tagName = match[2]!;
-    const suffix = match[3]!;
-
-    // Compute absolute offset in the full file
-    const absoluteOffset = templateStart + match.index;
-    const [line, col] = getLineCol(lineStarts, absoluteOffset);
-
-    const isComponent = COMPONENT_NAME_RE.test(tagName);
-
-    const attrs: string[] = [];
-
-    if (opts.jsxLocation) {
-      attrs.push(`data-astro-source="${shortFile}:${line}:${col}"`);
-    }
-
-    if (opts.componentLocation && isComponent) {
-      attrs.push(`data-astro-component="${tagName}"`);
-    }
-
-    if (attrs.length === 0) {
-      result += template.slice(lastIndex, match.index + fullMatch.length);
-      lastIndex = match.index + fullMatch.length;
-      continue;
-    }
-
-    const attrStr = " " + attrs.join(" ");
-
-    result += template.slice(lastIndex, match.index);
-    result += prefix + tagName + attrStr + suffix;
-    lastIndex = match.index + fullMatch.length;
-  }
-
-  result += template.slice(lastIndex);
-
-  // Reassemble: frontmatter + transformed template
-  return code.slice(0, templateStart) + result;
-}
-
 // ── The Vite plugin ──────────────────────────────────────────────────
 
 export default function astroGrabVite(
@@ -274,7 +210,7 @@ export default function astroGrabVite(
       }
     },
 
-    transform(code, id) {
+    async transform(code, id) {
       if (id.includes("node_modules")) return null;
 
       const relativePath = id.startsWith(projectRoot)
@@ -283,7 +219,7 @@ export default function astroGrabVite(
 
       // Handle .astro files
       if (id.endsWith(".astro")) {
-        const transformed = transformAstroFile(code, relativePath, {
+        const transformed = await transformAstroFile(code, relativePath, {
           jsxLocation,
           componentLocation,
         });

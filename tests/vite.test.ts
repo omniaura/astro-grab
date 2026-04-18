@@ -388,7 +388,7 @@ const filtered = items.filter(i => i > 1);
 });
 
 describe("transformAstroFile", () => {
-  it("only transforms the template section", () => {
+  it("only transforms the template section", async () => {
     const code = `---
 const items = ["a", "b"];
 const x = 5;
@@ -397,7 +397,7 @@ const x = 5;
   <h1>Title</h1>
 </div>`;
 
-    const result = transformAstroFile(code, "src/Page.astro", {
+    const result = await transformAstroFile(code, "src/Page.astro", {
       jsxLocation: true,
       componentLocation: true,
     });
@@ -410,7 +410,7 @@ const x = 5;
     expect(result).toContain("data-astro-source");
   });
 
-  it("computes correct line numbers in template section", () => {
+  it("computes correct line numbers in template section", async () => {
     const code = `---
 const a = 1;
 const b = 2;
@@ -419,7 +419,7 @@ const b = 2;
   <p>Hello</p>
 </main>`;
 
-    const result = transformAstroFile(code, "src/Page.astro", {
+    const result = await transformAstroFile(code, "src/Page.astro", {
       jsxLocation: true,
       componentLocation: false,
     });
@@ -429,7 +429,7 @@ const b = 2;
     expect(result).toContain('data-astro-source="src/Page.astro:6:');
   });
 
-  it("injects component attributes for PascalCase tags in templates", () => {
+  it("does not instrument PascalCase component tags in Astro templates", async () => {
     const code = `---
 import Card from "./Card.astro";
 ---
@@ -437,17 +437,19 @@ import Card from "./Card.astro";
   <p>Content</p>
 </Card>`;
 
-    const result = transformAstroFile(code, "src/Page.astro", {
+    const result = await transformAstroFile(code, "src/Page.astro", {
       jsxLocation: true,
       componentLocation: true,
     });
 
-    expect(result).toContain('data-astro-component="Card"');
+    expect(result).not.toContain('<Card data-astro-component="Card"');
+    expect(result).not.toContain('<Card data-astro-source=');
+    expect(result).toContain('<p data-astro-source="src/Page.astro:5:3">Content</p>');
   });
 
-  it("handles files without frontmatter", () => {
+  it("handles files without frontmatter", async () => {
     const code = `<div>Simple</div>`;
-    const result = transformAstroFile(code, "src/Simple.astro", {
+    const result = await transformAstroFile(code, "src/Simple.astro", {
       jsxLocation: true,
       componentLocation: false,
     });
@@ -457,12 +459,12 @@ import Card from "./Card.astro";
 
   // ── New: empty .astro files ───────────────────────────────────────────
 
-  it("handles a file with only frontmatter and no template content", () => {
+  it("handles a file with only frontmatter and no template content", async () => {
     const code = `---
 const x = 1;
 ---`;
 
-    const result = transformAstroFile(code, "src/Empty.astro", {
+    const result = await transformAstroFile(code, "src/Empty.astro", {
       jsxLocation: true,
       componentLocation: true,
     });
@@ -472,9 +474,9 @@ const x = 1;
     expect(result).not.toContain("data-astro-source");
   });
 
-  it("handles an empty file", () => {
+  it("handles an empty file", async () => {
     const code = "";
-    const result = transformAstroFile(code, "src/Empty.astro", {
+    const result = await transformAstroFile(code, "src/Empty.astro", {
       jsxLocation: true,
       componentLocation: true,
     });
@@ -484,7 +486,7 @@ const x = 1;
 
   // ── New: deeply nested structures in .astro templates ─────────────────
 
-  it("handles deeply nested structures in .astro templates", () => {
+  it("handles deeply nested structures in .astro templates", async () => {
     const code = `---
 ---
 <div>
@@ -499,7 +501,7 @@ const x = 1;
   </section>
 </div>`;
 
-    const result = transformAstroFile(code, "src/Deep.astro", {
+    const result = await transformAstroFile(code, "src/Deep.astro", {
       jsxLocation: true,
       componentLocation: false,
     });
@@ -516,14 +518,14 @@ const x = 1;
 
   // ── New: self-closing tags in .astro ──────────────────────────────────
 
-  it("handles self-closing tags in .astro templates", () => {
+  it("handles self-closing tags in .astro templates", async () => {
     const code = `---
 ---
 <img />
 <br/>
 <input />`;
 
-    const result = transformAstroFile(code, "src/Tags.astro", {
+    const result = await transformAstroFile(code, "src/Tags.astro", {
       jsxLocation: true,
       componentLocation: false,
     });
@@ -535,12 +537,12 @@ const x = 1;
 
   // ── New: both options disabled ────────────────────────────────────────
 
-  it("returns unchanged code when both options are disabled", () => {
+  it("returns unchanged code when both options are disabled", async () => {
     const code = `---
 ---
 <div><MyComponent /></div>`;
 
-    const result = transformAstroFile(code, "src/Page.astro", {
+    const result = await transformAstroFile(code, "src/Page.astro", {
       jsxLocation: false,
       componentLocation: false,
     });
@@ -550,7 +552,7 @@ const x = 1;
 
   // ── New: preserves frontmatter exactly ────────────────────────────────
 
-  it("preserves frontmatter imports and expressions exactly", () => {
+  it("preserves frontmatter imports and expressions exactly", async () => {
     const code = `---
 import Layout from "../layouts/Layout.astro";
 import Card from "../components/Card.astro";
@@ -561,7 +563,7 @@ const items = [1, 2, 3];
   <Card />
 </Layout>`;
 
-    const result = transformAstroFile(code, "src/Page.astro", {
+    const result = await transformAstroFile(code, "src/Page.astro", {
       jsxLocation: true,
       componentLocation: true,
     });
@@ -573,66 +575,117 @@ const items = [1, 2, 3];
     expect(result).toContain("const items = [1, 2, 3];");
 
     // Template is instrumented
-    expect(result).toContain('data-astro-component="Layout"');
-    expect(result).toContain('data-astro-component="Card"');
+    expect(result).not.toContain('data-astro-component="Layout"');
+    expect(result).not.toContain('data-astro-component="Card"');
   });
 
   // ── New: multiple components in template ──────────────────────────────
 
-  it("instruments all component tags in a template", () => {
+  it("skips component tags in a template", async () => {
     const code = `---
 ---
 <Header />
 <Main />
 <Footer />`;
 
-    const result = transformAstroFile(code, "src/Page.astro", {
+    const result = await transformAstroFile(code, "src/Page.astro", {
       jsxLocation: true,
       componentLocation: true,
     });
 
-    expect(result).toContain('data-astro-component="Header"');
-    expect(result).toContain('data-astro-component="Main"');
-    expect(result).toContain('data-astro-component="Footer"');
+    expect(result).not.toContain('data-astro-component="Header"');
+    expect(result).not.toContain('data-astro-component="Main"');
+    expect(result).not.toContain('data-astro-component="Footer"');
   });
 
   // ── New: template with HTML entities and special content ──────────────
 
-  it("handles template with script content", () => {
+  it("skips instrumentation for Astro script and style tags", async () => {
     const code = `---
 ---
 <div>
   <p>Content</p>
 </div>
+<script>
+  const setupReveals = () => {
+    const items = document.querySelectorAll<HTMLElement>('[data-reveal]');
+    return items.length;
+  };
+</script>
 <style>
   .wrapper { color: red; }
 </style>`;
 
-    const result = transformAstroFile(code, "src/Styled.astro", {
+    const result = await transformAstroFile(code, "src/Styled.astro", {
       jsxLocation: true,
       componentLocation: false,
     });
 
-    // The <style> tag should also get instrumented (it's an opening HTML tag)
-    expect(result).toContain("data-astro-source");
-    // The style content should be preserved
+    expect(result).toContain('<div data-astro-source="src/Styled.astro:3:1">');
+    expect(result).toContain('<p data-astro-source="src/Styled.astro:4:3">');
+    expect(result).not.toContain("<script data-astro-source");
+    expect(result).not.toContain("<style data-astro-source");
+    expect(result).toContain("querySelectorAll<HTMLElement>");
     expect(result).toContain("color: red;");
   });
 
   // ── New: inline expressions in template ───────────────────────────────
 
-  it("handles inline expressions in curly braces", () => {
+  it("handles inline expressions in curly braces", async () => {
     const code = `---
 const name = "World";
 ---
 <h1>Hello {name}!</h1>`;
 
-    const result = transformAstroFile(code, "src/Page.astro", {
+    const result = await transformAstroFile(code, "src/Page.astro", {
       jsxLocation: true,
       componentLocation: false,
     });
 
     expect(result).toContain("data-astro-source");
     expect(result).toContain("{name}");
+  });
+
+  it("does not corrupt quoted markup inside Astro expressions", async () => {
+    const code = `---
+---
+<div>
+  {"<span>inline</span>"}
+  {true && <button>Click</button>}
+</div>`;
+
+    const result = await transformAstroFile(code, "src/Expr.astro", {
+      jsxLocation: true,
+      componentLocation: false,
+    });
+
+    expect(result).toContain('{"<span>inline</span>"}');
+    expect(result).toContain('<button data-astro-source="src/Expr.astro:5:12">Click</button>');
+  });
+
+  it("handles template content containing --- without frontmatter", async () => {
+    const code = `<p>first</p>
+<pre>---</pre>
+<p>third</p>`;
+
+    const result = await transformAstroFile(code, "src/Dashes.astro", {
+      jsxLocation: true,
+      componentLocation: false,
+    });
+
+    expect(result).toContain('<p data-astro-source="src/Dashes.astro:1:1">first</p>');
+    expect(result).toContain('<pre data-astro-source="src/Dashes.astro:2:1">---</pre>');
+    expect(result).toContain('<p data-astro-source="src/Dashes.astro:3:1">third</p>');
+  });
+
+  it("normalizes Windows paths in Astro source attributes", async () => {
+    const code = `<div>Hello</div>`;
+
+    const result = await transformAstroFile(code, "C:\\repo\\src\\Page.astro", {
+      jsxLocation: true,
+      componentLocation: false,
+    });
+
+    expect(result).toContain('data-astro-source="C:/repo/src/Page.astro:1:1"');
   });
 });
