@@ -4,7 +4,7 @@
  * Runtime entry point. Auto-imported by the Astro integration in dev mode,
  * or import manually:
  *
- *   import { initAstroGrab } from "astro-grab";
+ *   import { initAstroGrab } from "@omniaura/astro-grab/client";
  *   initAstroGrab({ key: "Alt", agentUrl: "ws://localhost:4567" });
  */
 
@@ -34,11 +34,16 @@ let enabled = true;
 
 function isActivationKey(e: KeyboardEvent): boolean {
   switch (opts.key) {
-    case "Alt": return e.key === "Alt";
-    case "Control": return e.key === "Control";
-    case "Meta": return e.key === "Meta";
-    case "Shift": return e.key === "Shift";
-    default: return e.key === "Alt";
+    case "Alt":
+      return e.key === "Alt" || e.key === "Option" || e.code === "AltLeft" || e.code === "AltRight";
+    case "Control":
+      return e.key === "Control" || e.code === "ControlLeft" || e.code === "ControlRight";
+    case "Meta":
+      return e.key === "Meta" || e.key === "OS" || e.code === "MetaLeft" || e.code === "MetaRight";
+    case "Shift":
+      return e.key === "Shift" || e.code === "ShiftLeft" || e.code === "ShiftRight";
+    default:
+      return e.key === "Alt" || e.key === "Option" || e.code === "AltLeft" || e.code === "AltRight";
   }
 }
 
@@ -266,8 +271,8 @@ function bootstrap() {
   overlay.mount();
 
   // Set up event listeners
-  document.addEventListener("keydown", onKeyDown, true);
-  document.addEventListener("keyup", onKeyUp, true);
+  window.addEventListener("keydown", onKeyDown, true);
+  window.addEventListener("keyup", onKeyUp, true);
   document.addEventListener("mousemove", onMouseMove, true);
   document.addEventListener("mousedown", onMouseDown, true);
   document.addEventListener("click", onClick, true);
@@ -297,8 +302,8 @@ export function destroyAstroGrab() {
   if (!initialized) return;
   initialized = false;
 
-  document.removeEventListener("keydown", onKeyDown, true);
-  document.removeEventListener("keyup", onKeyUp, true);
+  window.removeEventListener("keydown", onKeyDown, true);
+  window.removeEventListener("keyup", onKeyUp, true);
   document.removeEventListener("mousemove", onMouseMove, true);
   document.removeEventListener("mousedown", onMouseDown, true);
   document.removeEventListener("click", onClick, true);

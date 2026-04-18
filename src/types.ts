@@ -99,10 +99,10 @@ export interface AstroGrabIntegrationOptions {
 
   /**
    * Activation key to hold while hovering to grab elements.
-   * Passed through to the runtime via the virtual module.
+   * Passed through to the dev runtime bootstrap.
    * @default "Alt"
    */
-  key?: "Alt" | "Control" | "Meta";
+  key?: "Alt" | "Control" | "Meta" | "Shift";
 }
 
 // ── Vite plugin options (internal, used by integration) ──────────────
@@ -128,10 +128,10 @@ export interface AstroGrabViteOptions {
 
   /**
    * Activation key to hold while hovering to grab elements.
-   * Passed through to the runtime via the virtual module.
+   * Passed through to the dev runtime bootstrap.
    * @default "Alt"
    */
-  key?: "Alt" | "Control" | "Meta";
+  key?: "Alt" | "Control" | "Meta" | "Shift";
 }
 
 // ── Data attribute names ─────────────────────────────────────────────

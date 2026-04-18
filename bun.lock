@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "astro-grab",
+      "dependencies": {
+        "@astrojs/compiler": "^2.13.0",
+      },
       "devDependencies": {
         "@happy-dom/global-registrator": "^17.4.7",
         "@types/node": "^25.6.0",

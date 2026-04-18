@@ -23,7 +23,7 @@ type ActivationKey = "Alt" | "Control" | "Meta" | "Shift";
 
 // ── Constants ─────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "astro-grab-toolbar-config";
+export const STORAGE_KEY = "astro-grab-toolbar-config";
 
 const ACTIVATION_KEYS: ActivationKey[] = ["Alt", "Control", "Meta", "Shift"];
 
