@@ -6,7 +6,7 @@
  * Usage in astro.config.mjs:
  *
  *   import { defineConfig } from "astro/config";
- *   import astroGrab from "astro-grab";
+ *   import astroGrab from "@omniaura/astro-grab";
  *
  *   export default defineConfig({
  *     integrations: [astroGrab()],
@@ -14,6 +14,7 @@
  */
 
 import type { AstroIntegration } from "astro";
+import { STORAGE_KEY } from "./toolbar.js";
 import type { AstroGrabIntegrationOptions } from "./types.js";
 import astroGrabVite from "./vite.js";
 
@@ -30,9 +31,49 @@ export default function astroGrab(
   return {
     name: "astro-grab",
     hooks: {
-      "astro:config:setup"({ updateConfig, command, addDevToolbarApp }) {
+      "astro:config:setup"({
+        updateConfig,
+        command,
+        addDevToolbarApp,
+        injectScript,
+      }) {
         // Only activate in dev mode
         if (command !== "dev") return;
+
+        if (autoImport) {
+          injectScript(
+            "page",
+            [
+              `import { initAstroGrab } from "@omniaura/astro-grab/client";`,
+              `const storageKey = ${JSON.stringify(STORAGE_KEY)};`,
+              `const configuredKey = ${JSON.stringify(key)};`,
+              `const validKeys = new Set(["Alt", "Control", "Meta", "Shift"]);`,
+              `const readToolbarConfig = () => {`,
+              `  try {`,
+              `    const stored = localStorage.getItem(storageKey);`,
+              `    if (!stored) return null;`,
+              `    const parsed = JSON.parse(stored);`,
+              `    return typeof parsed === "object" && parsed !== null ? parsed : null;`,
+              `  } catch {`,
+              `    return null;`,
+              `  }`,
+              `};`,
+              `const toolbarConfig = readToolbarConfig();`,
+              `const activationKey = validKeys.has(toolbarConfig?.key) ? toolbarConfig.key : configuredKey;`,
+              `initAstroGrab({ key: activationKey });`,
+              `if (toolbarConfig?.enabled === false) {`,
+              `  const disable = () => {`,
+              `    window.dispatchEvent(new CustomEvent("astro-grab:toggle", { detail: { enabled: false } }));`,
+              `  };`,
+              `  if (document.readyState === "loading") {`,
+              `    document.addEventListener("DOMContentLoaded", () => queueMicrotask(disable), { once: true });`,
+              `  } else {`,
+              `    queueMicrotask(disable);`,
+              `  }`,
+              `}`,
+            ].join("\n")
+          );
+        }
 
         updateConfig({
           vite: {
@@ -40,7 +81,7 @@ export default function astroGrab(
               astroGrabVite({
                 jsxLocation,
                 componentLocation,
-                autoImport,
+                autoImport: false,
                 key,
               }),
             ],

@@ -12,7 +12,7 @@
  * When used as an Astro integration, this is injected automatically.
  * For standalone Vite use:
  *
- *   import astroGrab from "astro-grab/vite";
+ *   import astroGrab from "@omniaura/astro-grab/vite";
  *   export default defineConfig({
  *     plugins: [astroGrab(), ...],
  *   });
@@ -207,7 +207,7 @@ export default function astroGrabVite(
 
     async load(id) {
       if (id === RESOLVED_VIRTUAL_INIT) {
-        return `import { initAstroGrab } from "astro-grab";\ninitAstroGrab({ key: "${key}" });`;
+        return `import { initAstroGrab } from "@omniaura/astro-grab/client";\ninitAstroGrab({ key: ${JSON.stringify(key)} });`;
       }
 
       if (!id.endsWith(".astro") || id.includes("node_modules")) {
@@ -265,6 +265,17 @@ export default function astroGrabVite(
       // Register snippet extraction middleware
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       server.middlewares.use(createSnippetMiddleware(projectRoot) as any);
+    },
+
+    handleHotUpdate({ file, modules, server }) {
+      if (!file.endsWith(".astro")) return;
+
+      for (const moduleNode of modules) {
+        server.moduleGraph.invalidateModule(moduleNode);
+      }
+
+      server.ws.send({ type: "full-reload", path: "*" });
+      return [];
     },
 
     transformIndexHtml() {

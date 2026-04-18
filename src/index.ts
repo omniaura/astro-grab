@@ -4,7 +4,7 @@
  * Runtime entry point. Auto-imported by the Astro integration in dev mode,
  * or import manually:
  *
- *   import { initAstroGrab } from "astro-grab";
+ *   import { initAstroGrab } from "@omniaura/astro-grab/client";
  *   initAstroGrab({ key: "Alt", agentUrl: "ws://localhost:4567" });
  */
 
