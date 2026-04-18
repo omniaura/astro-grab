@@ -1,5 +1,5 @@
 {
-  "name": "astro-grab",
+  "name": "@omniaura/astro-grab",
   "version": "0.1.0",
   "description": "Hold a key, hover, click — grab any element's source context for AI agents. Astro devtool.",
   "type": "module",
