@@ -48,9 +48,12 @@
   ],
   "author": "OmniAura",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/omniaura/astro-grab.git"
+    "url": "git+https://github.com/omniaura/astro-grab.git"
   },
   "homepage": "https://github.com/omniaura/astro-grab",
   "bugs": {
