@@ -18,6 +18,7 @@
  *   });
  */
 
+import { readFile } from "fs/promises";
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
 import { transformAstroFile } from "./astro-transform.js";
 import type { AstroGrabViteOptions } from "./types.js";
@@ -204,31 +205,43 @@ export default function astroGrabVite(
       if (id === VIRTUAL_INIT) return RESOLVED_VIRTUAL_INIT;
     },
 
-    load(id) {
+    async load(id) {
       if (id === RESOLVED_VIRTUAL_INIT) {
         return `import { initAstroGrab } from "astro-grab";\ninitAstroGrab({ key: "${key}" });`;
       }
-    },
 
-    async transform(code, id) {
-      if (id.includes("node_modules")) return null;
+      if (!id.endsWith(".astro") || id.includes("node_modules")) {
+        return null;
+      }
 
       const relativePath = id.startsWith(projectRoot)
         ? id.slice(projectRoot.length + 1)
         : id;
 
-      // Handle .astro files
-      if (id.endsWith(".astro")) {
-        const transformed = await transformAstroFile(code, relativePath, {
-          jsxLocation,
-          componentLocation,
-        });
-        if (transformed === code) return null;
-        return { code: transformed, map: null };
+      const source = await readFile(id, "utf8");
+      const transformed = await transformAstroFile(source, relativePath, {
+        jsxLocation,
+        componentLocation,
+      });
+
+      if (transformed === source) {
+        return null;
       }
+
+      return {
+        code: transformed,
+        map: null,
+      };
+    },
+
+    async transform(code, id) {
+      if (id.includes("node_modules")) return null;
 
       // Handle JSX/TSX framework island files
       if (/\.[jt]sx$/.test(id)) {
+        const relativePath = id.startsWith(projectRoot)
+          ? id.slice(projectRoot.length + 1)
+          : id;
         const transformed = transformCode(code, relativePath, {
           jsxLocation,
           componentLocation,

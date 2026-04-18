@@ -32,12 +32,12 @@ function trackStateChanges(): { states: string[]; cleanup: () => void } {
 
 function fireKeyDown(key: string, opts: Partial<KeyboardEventInit> = {}) {
   const event = new KeyboardEvent("keydown", { key, bubbles: true, ...opts });
-  document.dispatchEvent(event);
+  window.dispatchEvent(event);
 }
 
 function fireKeyUp(key: string, opts: Partial<KeyboardEventInit> = {}) {
   const event = new KeyboardEvent("keyup", { key, bubbles: true, ...opts });
-  document.dispatchEvent(event);
+  window.dispatchEvent(event);
 }
 
 function fireBlur() {
@@ -106,6 +106,14 @@ describe("Keybinding activation", () => {
       fireKeyUp("a");
 
       expect(tracker.states).toEqual([]);
+    });
+
+    it("matches Alt by keyboard code as well as key string", () => {
+      initAstroGrab({ key: "Alt" });
+      fireKeyDown("Option", { code: "AltLeft" });
+
+      expect(tracker.states).toContain("targeting");
+      expect(document.body.style.cursor).toBe("crosshair");
     });
   });
 
