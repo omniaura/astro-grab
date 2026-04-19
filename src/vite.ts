@@ -21,6 +21,7 @@
 import { readFile } from "fs/promises";
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
 import { transformAstroFile } from "./astro-transform.js";
+import { resolveTheme } from "./theme.js";
 import type { AstroGrabViteOptions } from "./types.js";
 import { createSnippetMiddleware } from "./snippet-server.js";
 
@@ -188,7 +189,10 @@ export default function astroGrabVite(
     componentLocation = true,
     autoImport = true,
     key = "Alt",
+    theme,
   } = options;
+
+  const resolvedTheme = resolveTheme(theme);
 
   let projectRoot = "";
 
@@ -207,7 +211,7 @@ export default function astroGrabVite(
 
     async load(id) {
       if (id === RESOLVED_VIRTUAL_INIT) {
-        return `import { initAstroGrab } from "@omniaura/astro-grab/client";\ninitAstroGrab({ key: ${JSON.stringify(key)} });`;
+        return `import { initAstroGrab } from "@omniaura/astro-grab/client";\ninitAstroGrab({ key: ${JSON.stringify(key)}, theme: ${JSON.stringify(resolvedTheme)} });`;
       }
 
       if (!id.endsWith(".astro") || id.includes("node_modules")) {

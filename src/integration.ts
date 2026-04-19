@@ -14,9 +14,13 @@
  */
 
 import type { AstroIntegration } from "astro";
+import { resolveTheme } from "./theme.js";
 import { STORAGE_KEY } from "./toolbar.js";
 import type { AstroGrabIntegrationOptions } from "./types.js";
 import astroGrabVite from "./vite.js";
+
+export { DEFAULT_ASTRO_GRAB_THEME } from "./theme.js";
+export type { AstroGrabTheme } from "./types.js";
 
 export default function astroGrab(
   options: AstroGrabIntegrationOptions = {}
@@ -26,7 +30,10 @@ export default function astroGrab(
     componentLocation = true,
     autoImport = true,
     key = "Alt",
+    theme,
   } = options;
+
+  const resolvedTheme = resolveTheme(theme);
 
   return {
     name: "astro-grab",
@@ -47,6 +54,7 @@ export default function astroGrab(
               `import { initAstroGrab } from "@omniaura/astro-grab/client";`,
               `const storageKey = ${JSON.stringify(STORAGE_KEY)};`,
               `const configuredKey = ${JSON.stringify(key)};`,
+              `const configuredTheme = ${JSON.stringify(resolvedTheme)};`,
               `const validKeys = new Set(["Alt", "Control", "Meta", "Shift"]);`,
               `const readToolbarConfig = () => {`,
               `  try {`,
@@ -60,7 +68,7 @@ export default function astroGrab(
               `};`,
               `const toolbarConfig = readToolbarConfig();`,
               `const activationKey = validKeys.has(toolbarConfig?.key) ? toolbarConfig.key : configuredKey;`,
-              `initAstroGrab({ key: activationKey });`,
+              `initAstroGrab({ key: activationKey, theme: configuredTheme });`,
               `if (toolbarConfig?.enabled === false) {`,
               `  const disable = () => {`,
               `    window.dispatchEvent(new CustomEvent("astro-grab:toggle", { detail: { enabled: false } }));`,
@@ -83,6 +91,7 @@ export default function astroGrab(
                 componentLocation,
                 autoImport: false,
                 key,
+                theme: resolvedTheme,
               }),
             ],
           },

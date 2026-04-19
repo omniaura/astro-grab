@@ -9,14 +9,16 @@
  */
 
 import { Overlay } from "./overlay.js";
+import { DEFAULT_ASTRO_GRAB_THEME, resolveTheme } from "./theme.js";
 import { inspect, findNearestSource, findNearestComponent, fetchSnippet, formatContext } from "./inspector.js";
 import { AgentBridge } from "./agent-bridge.js";
 import { StateMachine } from "./state-machine.js";
-import type { AstroGrabOptions, GrabbedContext } from "./types.js";
+import type { AstroGrabOptions, AstroGrabTheme, GrabbedContext } from "./types.js";
 
-export type { AstroGrabOptions, GrabbedContext, SourceLocation, ComponentInfo, SnippetResponse } from "./types.js";
+export type { AstroGrabOptions, AstroGrabTheme, GrabbedContext, SourceLocation, ComponentInfo, SnippetResponse } from "./types.js";
 export { inspect, fetchSnippet } from "./inspector.js";
 export { StateMachine } from "./state-machine.js";
+export { DEFAULT_ASTRO_GRAB_THEME } from "./theme.js";
 export type { ClientState, StateListener } from "./state-machine.js";
 
 // ── State ────────────────────────────────────────────────────────────
@@ -25,7 +27,9 @@ let initialized = false;
 let overlay: Overlay;
 let bridge: AgentBridge | null = null;
 let stateMachine: StateMachine;
-let opts: Required<Omit<AstroGrabOptions, "onGrab" | "agentUrl">> & Pick<AstroGrabOptions, "onGrab" | "agentUrl">;
+let opts: Required<Pick<AstroGrabOptions, "key" | "showToast">> &
+  Pick<AstroGrabOptions, "onGrab" | "agentUrl">;
+let currentTheme: AstroGrabTheme = { ...DEFAULT_ASTRO_GRAB_THEME };
 
 let hoveredEl: HTMLElement | null = null;
 let enabled = true;
@@ -198,6 +202,14 @@ function emitStateChange(state: string) {
   );
 }
 
+function emitReady() {
+  window.dispatchEvent(
+    new CustomEvent("astro-grab:ready", {
+      detail: { key: opts.key, theme: currentTheme },
+    })
+  );
+}
+
 function onToolbarToggle(e: Event) {
   const detail = (e as CustomEvent<{ enabled: boolean }>).detail;
   if (!detail) return;
@@ -253,10 +265,14 @@ export function initAstroGrab(options: AstroGrabOptions = {}) {
     onGrab: options.onGrab,
     agentUrl: options.agentUrl,
   };
+  currentTheme = resolveTheme(options.theme);
+  if (typeof window !== "undefined") {
+    window.__ASTRO_GRAB__.theme = currentTheme;
+  }
 
   // Create state machine and overlay
   stateMachine = new StateMachine();
-  overlay = new Overlay();
+  overlay = new Overlay(currentTheme);
   overlay.connectStateMachine(stateMachine);
 
   // Wait for DOM to be ready
@@ -269,6 +285,7 @@ export function initAstroGrab(options: AstroGrabOptions = {}) {
 
 function bootstrap() {
   overlay.mount();
+  emitReady();
 
   // Set up event listeners
   window.addEventListener("keydown", onKeyDown, true);
@@ -290,7 +307,7 @@ function bootstrap() {
 
   console.log(
     `%c\u26A1 astro-grab%c Hold ${opts.key} + click to grab element context`,
-    "color: #d8b4fe; font-weight: bold",
+    `color: ${currentTheme.accentSoft}; font-weight: bold`,
     "color: inherit"
   );
 }
@@ -316,6 +333,10 @@ export function destroyAstroGrab() {
   bridge?.disconnect();
   bridge = null;
   enabled = true;
+  currentTheme = { ...DEFAULT_ASTRO_GRAB_THEME };
+  if (typeof window !== "undefined") {
+    window.__ASTRO_GRAB__.theme = currentTheme;
+  }
   document.body.style.cursor = "";
 }
 
@@ -335,6 +356,7 @@ declare global {
       init: typeof initAstroGrab;
       destroy: typeof destroyAstroGrab;
       inspect: typeof inspect;
+      theme: AstroGrabTheme;
     };
   }
 }
@@ -344,5 +366,6 @@ if (typeof window !== "undefined") {
     init: initAstroGrab,
     destroy: destroyAstroGrab,
     inspect,
+    theme: currentTheme,
   };
 }

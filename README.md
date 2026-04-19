@@ -5,9 +5,9 @@ Hold a key, hover, click — grab any element's source context for AI agents. As
 ## Install
 
 ```bash
-bun add -D astro-grab
+bun add -D @omniaura/astro-grab
 # or
-npm install -D astro-grab
+npm install -D @omniaura/astro-grab
 ```
 
 ## Setup
@@ -16,7 +16,7 @@ Add the integration to your `astro.config.mjs`:
 
 ```js
 import { defineConfig } from "astro/config";
-import astroGrab from "astro-grab";
+import astroGrab from "@omniaura/astro-grab";
 
 export default defineConfig({
   integrations: [astroGrab()],
@@ -58,7 +58,11 @@ astroGrab({
   jsxLocation: true,      // Inject data-astro-source (default: true)
   componentLocation: true, // Inject data-astro-component (default: true)
   autoImport: true,        // Auto-import runtime in dev (default: true)
-  key: "Alt",              // Modifier key: "Alt" | "Control" | "Meta" (default: "Alt")
+  key: "Alt",              // Modifier key: "Alt" | "Control" | "Meta" | "Shift"
+  theme: {
+    accent: "#bc52ee",     // Optional theme overrides
+    surface: "#1a1a2e",
+  },
 })
 ```
 
@@ -67,15 +71,51 @@ astroGrab({
 For manual initialization (if `autoImport: false`):
 
 ```js
-import { initAstroGrab } from "astro-grab/client";
+import { initAstroGrab } from "@omniaura/astro-grab/client";
 
 initAstroGrab({
   key: "Alt",              // Modifier key (default: "Alt")
   showToast: true,         // Show notification on copy (default: true)
   agentUrl: "ws://...",    // WebSocket URL for agent bridge (optional)
   onGrab: (context) => {}, // Callback, return false to prevent copy
+  theme: {
+    accent: "#bc52ee",
+    surface: "#1a1a2e",
+  },
 });
 ```
+
+### Theme Defaults
+
+`astro-grab` now exposes its built-in OmniAura palette so you can extend it instead of re-creating it:
+
+```js
+import astroGrab, { DEFAULT_ASTRO_GRAB_THEME } from "@omniaura/astro-grab";
+
+export default defineConfig({
+  integrations: [
+    astroGrab({
+      key: "Alt",
+      theme: {
+        ...DEFAULT_ASTRO_GRAB_THEME,
+        accent: "#ff7a59",
+        accentSoft: "#ffd1c2",
+      },
+    }),
+  ],
+});
+```
+
+Available theme keys:
+
+- `accent`
+- `accentSoft`
+- `surface`
+- `text`
+- `overlay`
+- `border`
+- `crosshair`
+- `tag`
 
 ### Agent Bridge
 
@@ -91,7 +131,7 @@ astroGrab({
 Then in your client code:
 
 ```js
-import { initAstroGrab } from "astro-grab/client";
+import { initAstroGrab } from "@omniaura/astro-grab/client";
 
 initAstroGrab({
   agentUrl: "ws://localhost:4567",
@@ -119,7 +159,7 @@ If you're not using the Astro integration (e.g., in a plain Vite project):
 
 ```js
 import { defineConfig } from "vite";
-import astroGrab from "astro-grab/vite";
+import astroGrab from "@omniaura/astro-grab/vite";
 
 export default defineConfig({
   plugins: [astroGrab()],
@@ -134,6 +174,7 @@ Access the runtime programmatically via `window.__ASTRO_GRAB__`:
 window.__ASTRO_GRAB__.init({ key: "Control" });
 window.__ASTRO_GRAB__.destroy();
 window.__ASTRO_GRAB__.inspect(document.querySelector(".my-element"));
+console.log(window.__ASTRO_GRAB__.theme);
 ```
 
 ## Dev Only

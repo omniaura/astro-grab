@@ -49,6 +49,25 @@ export interface GrabbedContext {
 
 // ── Configuration ────────────────────────────────────────────────────
 
+export interface AstroGrabTheme {
+  /** Primary accent used for outlines and emphasis. */
+  accent: string;
+  /** Softer accent used for badge and component labels. */
+  accentSoft: string;
+  /** Background color for tooltip, toast, and badge surfaces. */
+  surface: string;
+  /** Primary text color for overlay UI. */
+  text: string;
+  /** Highlight tint drawn over the targeted element. */
+  overlay: string;
+  /** Border color for tooltip, toast, and badge surfaces. */
+  border: string;
+  /** Crosshair guide line color. */
+  crosshair: string;
+  /** Element tag color inside the tooltip. */
+  tag: string;
+}
+
 export interface AstroGrabOptions {
   /**
    * Key to hold while hovering to activate the overlay.
@@ -74,6 +93,12 @@ export interface AstroGrabOptions {
    * @default true
    */
   showToast?: boolean;
+
+  /**
+   * Override the overlay look and feel.
+   * Omitted values fall back to the built-in OmniAura theme.
+   */
+  theme?: Partial<AstroGrabTheme>;
 }
 
 // ── Astro integration options ────────────────────────────────────────
@@ -103,6 +128,12 @@ export interface AstroGrabIntegrationOptions {
    * @default "Alt"
    */
   key?: "Alt" | "Control" | "Meta" | "Shift";
+
+  /**
+   * Override the runtime overlay theme.
+   * Omitted values fall back to the built-in OmniAura theme.
+   */
+  theme?: Partial<AstroGrabTheme>;
 }
 
 // ── Vite plugin options (internal, used by integration) ──────────────
@@ -132,6 +163,12 @@ export interface AstroGrabViteOptions {
    * @default "Alt"
    */
   key?: "Alt" | "Control" | "Meta" | "Shift";
+
+  /**
+   * Override the runtime overlay theme.
+   * Omitted values fall back to the built-in OmniAura theme.
+   */
+  theme?: Partial<AstroGrabTheme>;
 }
 
 // ── Data attribute names ─────────────────────────────────────────────

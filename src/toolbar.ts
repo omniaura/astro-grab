@@ -12,11 +12,18 @@
  * Persists preferences to localStorage under "astro-grab-toolbar-config".
  */
 
+import { DEFAULT_ASTRO_GRAB_THEME, isDefaultTheme } from "./theme.js";
+import type { AstroGrabTheme } from "./types.js";
+
 // ── Types ─────────────────────────────────────────────────────────────
 
 interface ToolbarConfig {
   enabled: boolean;
   key: string;
+}
+
+interface AstroGrabRuntime {
+  theme: AstroGrabTheme;
 }
 
 type ActivationKey = "Alt" | "Control" | "Meta" | "Shift";
@@ -75,6 +82,14 @@ const dispatchConfigUpdate = (key: string): void => {
   );
 };
 
+const getActiveTheme = (): AstroGrabTheme => {
+  const runtimeTheme = (window as Window & {
+    __ASTRO_GRAB__?: AstroGrabRuntime;
+  }).__ASTRO_GRAB__?.theme;
+
+  return runtimeTheme ?? DEFAULT_ASTRO_GRAB_THEME;
+};
+
 // ── Toolbar App ───────────────────────────────────────────────────────
 
 export default {
@@ -84,6 +99,7 @@ export default {
 
   init(canvas: ShadowRoot, eventTarget: EventTarget) {
     const config = getConfig();
+    let activeTheme = getActiveTheme();
 
     // ── Window container ────────────────────────────────────────────
     const toolbarWindow = document.createElement("astro-dev-toolbar-window");
@@ -193,6 +209,82 @@ export default {
     keySection.appendChild(keyRow);
     keySection.appendChild(currentKeyDisplay);
 
+    // ── Appearance section ──────────────────────────────────────────
+    const appearanceSection = document.createElement("div");
+    appearanceSection.style.cssText =
+      "display: flex; flex-direction: column; gap: 8px;";
+
+    const appearanceLabel = document.createElement("div");
+    appearanceLabel.textContent = "Appearance";
+    appearanceLabel.style.cssText = "font-size: 13px; font-weight: 500;";
+
+    const appearanceNote = document.createElement("div");
+    appearanceNote.style.cssText = "font-size: 11px; color: #9ca3af;";
+
+    const swatchGrid = document.createElement("div");
+    swatchGrid.style.cssText =
+      "display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;";
+
+    const swatchItems: Array<{
+      swatch: HTMLSpanElement;
+      value: HTMLSpanElement;
+      key: keyof Pick<AstroGrabTheme, "accent" | "surface" | "overlay" | "tag">;
+    }> = [];
+
+    const createSwatch = (
+      label: string,
+      key: keyof Pick<AstroGrabTheme, "accent" | "surface" | "overlay" | "tag">
+    ): HTMLElement => {
+      const item = document.createElement("div");
+      item.style.cssText =
+        "display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px;";
+
+      const swatch = document.createElement("span");
+      swatch.style.cssText =
+        "width: 12px; height: 12px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.16); flex: 0 0 auto;";
+
+      const copy = document.createElement("div");
+      copy.style.cssText = "display: flex; flex-direction: column; gap: 2px; min-width: 0;";
+
+      const name = document.createElement("span");
+      name.textContent = label;
+      name.style.cssText = "font-size: 11px; color: #d1d5db;";
+
+      const value = document.createElement("span");
+      value.style.cssText =
+        "font-size: 10px; color: #9ca3af; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;";
+
+      copy.appendChild(name);
+      copy.appendChild(value);
+      item.appendChild(swatch);
+      item.appendChild(copy);
+      swatchItems.push({ swatch, value, key });
+      return item;
+    };
+
+    swatchGrid.appendChild(createSwatch("Accent", "accent"));
+    swatchGrid.appendChild(createSwatch("Surface", "surface"));
+    swatchGrid.appendChild(createSwatch("Overlay", "overlay"));
+    swatchGrid.appendChild(createSwatch("Tag", "tag"));
+
+    const updateThemePreview = (theme: AstroGrabTheme): void => {
+      activeTheme = theme;
+      appearanceNote.textContent = isDefaultTheme(theme)
+        ? "OmniAura defaults"
+        : "Customized in config";
+
+      for (const item of swatchItems) {
+        item.swatch.style.backgroundColor = theme[item.key];
+        item.value.textContent = theme[item.key];
+      }
+    };
+
+    updateThemePreview(activeTheme);
+
+    appearanceSection.appendChild(appearanceLabel);
+    appearanceSection.appendChild(appearanceNote);
+    appearanceSection.appendChild(swatchGrid);
+
     // ── Status section ──────────────────────────────────────────────
     const statusSection = document.createElement("div");
     statusSection.style.cssText =
@@ -222,6 +314,7 @@ export default {
     // ── Assemble ────────────────────────────────────────────────────
     content.appendChild(enableSection);
     content.appendChild(keySection);
+    content.appendChild(appearanceSection);
     content.appendChild(statusSection);
 
     toolbarWindow.appendChild(header);
@@ -274,6 +367,14 @@ export default {
         stateBadge.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
         stateBadge.style.color = "#d1d5db";
         stateDescription.textContent = "Waiting for activation key";
+      }
+    }) as EventListener);
+
+    window.addEventListener("astro-grab:ready", ((
+      e: CustomEvent<{ theme?: AstroGrabTheme }>
+    ) => {
+      if (e.detail?.theme) {
+        updateThemePreview(e.detail.theme);
       }
     }) as EventListener);
 

@@ -6,18 +6,20 @@
  * with the app being inspected.
  */
 
-import type { SourceLocation } from "./types.js";
+import { resolveTheme } from "./theme.js";
 import type { StateMachine } from "./state-machine.js";
+import type { AstroGrabTheme, SourceLocation } from "./types.js";
 
 // ── Styles ───────────────────────────────────────────────────────────
 
-const OVERLAY_STYLES = `
+function createOverlayStyles(theme: AstroGrabTheme): string {
+  return `
   .astro-grab-overlay {
     position: fixed;
     pointer-events: none;
     z-index: 2147483647;
-    border: 2px solid #bc52ee;
-    background: rgba(188, 82, 238, 0.08);
+    border: 2px solid ${theme.accent};
+    background: ${theme.overlay};
     border-radius: 3px;
     transition: all 0.08s ease-out;
   }
@@ -26,14 +28,14 @@ const OVERLAY_STYLES = `
     position: fixed;
     z-index: 2147483647;
     pointer-events: none;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    background: ${theme.surface};
+    color: ${theme.text};
     font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
     font-size: 12px;
     line-height: 1.4;
     padding: 6px 10px;
     border-radius: 6px;
-    border: 1px solid rgba(188, 82, 238, 0.4);
+    border: 1px solid ${theme.border};
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     max-width: 480px;
     white-space: nowrap;
@@ -42,17 +44,17 @@ const OVERLAY_STYLES = `
   }
 
   .astro-grab-tooltip .ag-component {
-    color: #d8b4fe;
+    color: ${theme.accentSoft};
     font-weight: 600;
   }
 
   .astro-grab-tooltip .ag-file {
-    color: #c4b5fd;
+    color: ${theme.accentSoft};
     opacity: 0.85;
   }
 
   .astro-grab-tooltip .ag-tag {
-    color: #86efac;
+    color: ${theme.tag};
   }
 
   .astro-grab-toast {
@@ -61,13 +63,13 @@ const OVERLAY_STYLES = `
     left: 50%;
     transform: translateX(-50%) translateY(0);
     z-index: 2147483647;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    background: ${theme.surface};
+    color: ${theme.text};
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 13px;
     padding: 10px 18px;
     border-radius: 8px;
-    border: 1px solid rgba(188, 82, 238, 0.3);
+    border: 1px solid ${theme.border};
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     opacity: 0;
     transition: opacity 0.2s, transform 0.2s;
@@ -84,14 +86,14 @@ const OVERLAY_STYLES = `
     bottom: 12px;
     right: 12px;
     z-index: 2147483646;
-    background: #1a1a2e;
-    color: #d8b4fe;
+    background: ${theme.surface};
+    color: ${theme.accentSoft};
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 11px;
     font-weight: 600;
     padding: 4px 10px;
     border-radius: 6px;
-    border: 1px solid rgba(188, 82, 238, 0.25);
+    border: 1px solid ${theme.border};
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     cursor: default;
     user-select: none;
@@ -114,7 +116,7 @@ const OVERLAY_STYLES = `
 
   .astro-grab-crosshair-line {
     position: absolute;
-    background: rgba(188, 82, 238, 0.4);
+    background: ${theme.crosshair};
     pointer-events: none;
   }
 
@@ -126,6 +128,7 @@ const OVERLAY_STYLES = `
     height: 1px;
   }
 `;
+}
 
 // ── Overlay class ────────────────────────────────────────────────────
 
@@ -144,10 +147,12 @@ export class Overlay {
   private _mounted = false;
   private unsubscribeState: (() => void) | null = null;
   private lastHighlightRect: DOMRect | null = null;
+  readonly theme: AstroGrabTheme;
 
-  constructor() {
+  constructor(theme?: Partial<AstroGrabTheme>) {
+    this.theme = resolveTheme(theme);
     this.styleEl = document.createElement("style");
-    this.styleEl.textContent = OVERLAY_STYLES;
+    this.styleEl.textContent = createOverlayStyles(this.theme);
 
     this.overlayEl = document.createElement("div");
     this.overlayEl.className = "astro-grab-overlay";
