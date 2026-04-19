@@ -61,6 +61,19 @@ describe("Overlay", () => {
     it("is safe to call unmount without mount", () => {
       expect(() => overlay.unmount()).not.toThrow();
     });
+
+    it("injects theme styles using overrides while preserving defaults", () => {
+      overlay = new Overlay({
+        accent: "#00ffaa",
+        surface: "#101010",
+      });
+      overlay.mount();
+
+      const styleEl = document.head.querySelector("style");
+      expect(styleEl?.textContent).toContain("#00ffaa");
+      expect(styleEl?.textContent).toContain("#101010");
+      expect(styleEl?.textContent).toContain("rgba(188, 82, 238, 0.08)");
+    });
   });
 
   describe("highlight", () => {
