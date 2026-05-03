@@ -27,12 +27,13 @@ let initialized = false;
 let overlay: Overlay;
 let bridge: AgentBridge | null = null;
 let stateMachine: StateMachine;
-let opts: Required<Pick<AstroGrabOptions, "key" | "showToast">> &
+let opts: Required<Pick<AstroGrabOptions, "key" | "showToast" | "holdDuration">> &
   Pick<AstroGrabOptions, "onGrab" | "agentUrl">;
 let currentTheme: AstroGrabTheme = { ...DEFAULT_ASTRO_GRAB_THEME };
 
 let hoveredEl: HTMLElement | null = null;
 let enabled = true;
+let holdTimerId: ReturnType<typeof setTimeout> | null = null;
 
 // ── Key handling ─────────────────────────────────────────────────────
 
@@ -51,10 +52,14 @@ function isActivationKey(e: KeyboardEvent): boolean {
   }
 }
 
-function onKeyDown(e: KeyboardEvent) {
-  if (!enabled) return;
-  if (!isActivationKey(e)) return;
+function clearHoldTimer() {
+  if (holdTimerId !== null) {
+    clearTimeout(holdTimerId);
+    holdTimerId = null;
+  }
+}
 
+function activateTargeting() {
   stateMachine.transition("targeting");
   emitStateChange("targeting");
   overlay.setBadge(`\u26A1 astro-grab [${opts.key}]`);
@@ -66,8 +71,36 @@ function onKeyDown(e: KeyboardEvent) {
   }
 }
 
+function onKeyDown(e: KeyboardEvent) {
+  if (!enabled) return;
+  if (!isActivationKey(e)) return;
+
+  // If a hold timer is already armed or we're already targeting, ignore
+  // repeated key-down events (e.g. OS auto-repeat).
+  if (holdTimerId !== null) return;
+  if (stateMachine.getState() === "targeting") {
+    activateTargeting();
+    return;
+  }
+
+  if (opts.holdDuration > 0) {
+    holdTimerId = setTimeout(() => {
+      holdTimerId = null;
+      // Re-check enabled in case toggle disabled us during the hold.
+      if (!enabled) return;
+      activateTargeting();
+    }, opts.holdDuration);
+    return;
+  }
+
+  activateTargeting();
+}
+
 function onKeyUp(e: KeyboardEvent) {
   if (!isActivationKey(e)) return;
+
+  // Cancel an armed hold timer if the user releases early.
+  clearHoldTimer();
 
   stateMachine.transition("idle");
   emitStateChange("idle");
@@ -186,6 +219,9 @@ async function copyToClipboard(text: string) {
 // ── Blur handling (key release when window loses focus) ──────────────
 
 function onBlur() {
+  // Always cancel any armed hold timer when focus leaves the window.
+  clearHoldTimer();
+
   if (stateMachine.getState() === "targeting") {
     stateMachine.transition("idle");
     emitStateChange("idle");
@@ -217,6 +253,9 @@ function onToolbarToggle(e: Event) {
   enabled = detail.enabled;
 
   if (!enabled) {
+    // Cancel any armed hold timer on disable.
+    clearHoldTimer();
+
     // Transition to idle and remove active state
     if (stateMachine.getState() !== "idle") {
       stateMachine.transition("idle");
@@ -230,22 +269,40 @@ function onToolbarToggle(e: Event) {
 }
 
 function onToolbarConfigUpdate(e: Event) {
-  const detail = (e as CustomEvent<{ key?: string }>).detail;
-  if (!detail?.key) return;
+  const detail = (e as CustomEvent<{ key?: string; holdDuration?: number }>).detail;
+  if (!detail) return;
 
-  const validKeys = ["Alt", "Control", "Meta", "Shift"];
-  if (!validKeys.includes(detail.key)) return;
+  let keyChanged = false;
 
-  opts.key = detail.key as "Alt" | "Control" | "Meta" | "Shift";
+  if (detail.key !== undefined) {
+    const validKeys = ["Alt", "Control", "Meta", "Shift"];
+    if (validKeys.includes(detail.key)) {
+      opts.key = detail.key as "Alt" | "Control" | "Meta" | "Shift";
+      keyChanged = true;
+    }
+  }
 
-  // If currently targeting, transition back to idle since the key changed
-  if (stateMachine.getState() === "targeting") {
-    stateMachine.transition("idle");
-    emitStateChange("idle");
-    overlay.clearHighlight();
-    overlay.setBadge("\u26A1 astro-grab");
-    document.body.style.cursor = "";
-    hoveredEl = null;
+  if (
+    detail.holdDuration !== undefined &&
+    typeof detail.holdDuration === "number" &&
+    Number.isFinite(detail.holdDuration) &&
+    detail.holdDuration >= 0
+  ) {
+    opts.holdDuration = detail.holdDuration;
+  }
+
+  // If the key changed and we're currently targeting (or have a timer armed),
+  // cancel the activation since the key being held no longer matches.
+  if (keyChanged) {
+    clearHoldTimer();
+    if (stateMachine.getState() === "targeting") {
+      stateMachine.transition("idle");
+      emitStateChange("idle");
+      overlay.clearHighlight();
+      overlay.setBadge("\u26A1 astro-grab");
+      document.body.style.cursor = "";
+      hoveredEl = null;
+    }
   }
 }
 
@@ -262,6 +319,12 @@ export function initAstroGrab(options: AstroGrabOptions = {}) {
   opts = {
     key: options.key ?? "Alt",
     showToast: options.showToast ?? true,
+    holdDuration:
+      typeof options.holdDuration === "number" &&
+      Number.isFinite(options.holdDuration) &&
+      options.holdDuration >= 0
+        ? options.holdDuration
+        : 0,
     onGrab: options.onGrab,
     agentUrl: options.agentUrl,
   };
@@ -328,6 +391,7 @@ export function destroyAstroGrab() {
   window.removeEventListener("astro-grab:toggle", onToolbarToggle);
   window.removeEventListener("astro-grab:config-update", onToolbarConfigUpdate);
 
+  clearHoldTimer();
   stateMachine.reset();
   overlay.unmount();
   bridge?.disconnect();

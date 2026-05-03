@@ -373,4 +373,166 @@ describe("Keybinding activation", () => {
       expect(() => initAstroGrab({ showToast: false })).not.toThrow();
     });
   });
+
+  // ── holdDuration option ───────────────────────────────────────────────
+
+  describe("holdDuration option", () => {
+    it("default (no holdDuration) activates instantly on key-down", () => {
+      initAstroGrab({ key: "Alt" });
+      fireKeyDown("Alt");
+      expect(tracker.states).toEqual(["targeting"]);
+      expect(document.body.style.cursor).toBe("crosshair");
+    });
+
+    it("holdDuration: 0 activates instantly (preserves snappy default)", () => {
+      initAstroGrab({ key: "Alt", holdDuration: 0 });
+      fireKeyDown("Alt");
+      expect(tracker.states).toEqual(["targeting"]);
+    });
+
+    it("holdDuration > 0 delays activation until timer fires", async () => {
+      initAstroGrab({ key: "Alt", holdDuration: 50 });
+      fireKeyDown("Alt");
+
+      // Should not have transitioned yet
+      expect(tracker.states).toEqual([]);
+      expect(document.body.style.cursor).toBe("");
+
+      // Wait past the hold duration
+      await new Promise<void>((resolve) => setTimeout(resolve, 80));
+
+      expect(tracker.states).toEqual(["targeting"]);
+      expect(document.body.style.cursor).toBe("crosshair");
+    });
+
+    it("releasing key before hold timer fires cancels activation", async () => {
+      initAstroGrab({ key: "Alt", holdDuration: 100 });
+      fireKeyDown("Alt");
+
+      // Release early
+      await new Promise<void>((resolve) => setTimeout(resolve, 20));
+      fireKeyUp("Alt");
+
+      // Wait past the original hold duration to confirm timer was canceled
+      await new Promise<void>((resolve) => setTimeout(resolve, 120));
+
+      // No targeting transition should have occurred
+      expect(tracker.states).not.toContain("targeting");
+    });
+
+    it("blur during hold cancels the pending activation", async () => {
+      initAstroGrab({ key: "Alt", holdDuration: 100 });
+      fireKeyDown("Alt");
+      fireBlur();
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 120));
+
+      expect(tracker.states).not.toContain("targeting");
+    });
+
+    it("disable via toggle during hold cancels the pending activation", async () => {
+      initAstroGrab({ key: "Alt", holdDuration: 100 });
+      fireKeyDown("Alt");
+
+      window.dispatchEvent(
+        new CustomEvent("astro-grab:toggle", { detail: { enabled: false } }),
+      );
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 120));
+
+      expect(tracker.states).not.toContain("targeting");
+    });
+
+    it("OS auto-repeat keydowns do not arm multiple timers", async () => {
+      initAstroGrab({ key: "Alt", holdDuration: 50 });
+
+      fireKeyDown("Alt");
+      fireKeyDown("Alt");
+      fireKeyDown("Alt");
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 80));
+
+      // Exactly one targeting transition should have happened
+      expect(tracker.states.filter((s) => s === "targeting")).toHaveLength(1);
+    });
+
+    it("invalid holdDuration values fall back to 0 (instant)", () => {
+      initAstroGrab({ key: "Alt", holdDuration: -100 as unknown as number });
+      fireKeyDown("Alt");
+      expect(tracker.states).toEqual(["targeting"]);
+
+      destroyAstroGrab();
+      tracker.states.length = 0;
+
+      initAstroGrab({ key: "Alt", holdDuration: NaN });
+      fireKeyDown("Alt");
+      expect(tracker.states).toEqual(["targeting"]);
+    });
+
+    it("can re-activate after hold cycle completes", async () => {
+      initAstroGrab({ key: "Alt", holdDuration: 30 });
+
+      fireKeyDown("Alt");
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      fireKeyUp("Alt");
+
+      fireKeyDown("Alt");
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      fireKeyUp("Alt");
+
+      expect(tracker.states).toEqual([
+        "targeting",
+        "idle",
+        "targeting",
+        "idle",
+      ]);
+    });
+
+    it("toolbar config-update can change holdDuration at runtime", async () => {
+      initAstroGrab({ key: "Alt", holdDuration: 0 });
+
+      window.dispatchEvent(
+        new CustomEvent("astro-grab:config-update", {
+          detail: { holdDuration: 50 },
+        }),
+      );
+
+      fireKeyDown("Alt");
+      // Should not have transitioned yet because hold is now armed
+      expect(tracker.states).toEqual([]);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 80));
+      expect(tracker.states).toEqual(["targeting"]);
+    });
+
+    it("toolbar config-update ignores invalid holdDuration values", async () => {
+      initAstroGrab({ key: "Alt", holdDuration: 50 });
+
+      window.dispatchEvent(
+        new CustomEvent("astro-grab:config-update", {
+          detail: { holdDuration: -1 },
+        }),
+      );
+
+      // Should still be 50ms hold
+      fireKeyDown("Alt");
+      expect(tracker.states).toEqual([]);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 80));
+      expect(tracker.states).toEqual(["targeting"]);
+    });
+
+    it("destroy clears any armed hold timer", async () => {
+      initAstroGrab({ key: "Alt", holdDuration: 100 });
+      fireKeyDown("Alt");
+
+      destroyAstroGrab();
+      tracker.states.length = 0;
+
+      // Wait past the original hold duration
+      await new Promise<void>((resolve) => setTimeout(resolve, 120));
+
+      expect(tracker.states).toEqual([]);
+    });
+  });
 });
