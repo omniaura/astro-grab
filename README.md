@@ -59,6 +59,7 @@ astroGrab({
   componentLocation: true, // Inject data-astro-component (default: true)
   autoImport: true,        // Auto-import runtime in dev (default: true)
   key: "Alt",              // Modifier key: "Alt" | "Control" | "Meta" | "Shift"
+  template: "Element: {{tagName}}\nSource: {{source}}\n\n{{html}}",
   theme: {
     accent: "#bc52ee",     // Optional theme overrides
     surface: "#1a1a2e",
@@ -77,6 +78,7 @@ initAstroGrab({
   key: "Alt",              // Modifier key (default: "Alt")
   showToast: true,         // Show notification on copy (default: true)
   agentUrl: "ws://...",    // WebSocket URL for agent bridge (optional)
+  template: "Element: {{tagName}}\nSource: {{source}}\n\n{{html}}",
   onGrab: (context) => {}, // Callback, return false to prevent copy
   theme: {
     accent: "#bc52ee",
@@ -84,6 +86,21 @@ initAstroGrab({
   },
 });
 ```
+
+Omit `template` to keep the built-in astro-grab context format. Template
+placeholders use `{{variable}}` interpolation. Available variables:
+
+- `tagName`
+- `source`
+- `components`
+- `html`
+- `file`
+- `line`
+- `snippet`
+- `startLine`
+- `endLine`
+- `targetLine`
+- `language`
 
 ### Theme Defaults
 

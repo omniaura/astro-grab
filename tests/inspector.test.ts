@@ -6,6 +6,7 @@ import {
   findNearestComponent,
   getComponentChain,
   formatContext,
+  interpolateTemplate,
   inspect,
   fetchSnippet,
 } from "../src/inspector.js";
@@ -558,6 +559,72 @@ describe("DOM walking", () => {
       // The class should be truncated with ...
       expect(output).toContain('class="' + "a".repeat(77) + '..."');
     });
+
+    it("formats a custom clipboard template with context variables", () => {
+      const el = document.createElement("button");
+      el.className = "btn primary";
+      el.textContent = "Save";
+
+      const output = formatContext(
+        {
+          element: el,
+          tagName: "button",
+          elementSource: { file: "src/App.astro", line: 24, column: 8 },
+          components: [
+            { name: "Counter", location: { file: "src/Counter.astro", line: 12, column: 1 } },
+          ],
+          timestamp: Date.now(),
+        },
+        "Tag: {{tagName}}\nFile: {{file}}\nLine: {{line}}\nSource: {{source}}\n{{components}}\n{{html}}"
+      );
+
+      expect(output).toContain("Tag: button");
+      expect(output).toContain("File: src/App.astro");
+      expect(output).toContain("Line: 24");
+      expect(output).toContain("Source: src/App.astro:24:8");
+      expect(output).toContain("<Counter /> -> src/Counter.astro:12:1");
+      expect(output).toContain('<button class="btn primary">Save</button>');
+    });
+
+    it("exposes snippet variables to custom clipboard templates", () => {
+      const el = document.createElement("div");
+      const snippet: SnippetResponse = {
+        file: "src/Page.astro",
+        snippet: "<Card />",
+        startLine: 5,
+        endLine: 9,
+        targetLine: 7,
+        language: "astro",
+      };
+
+      const output = formatContext(
+        {
+          element: el,
+          tagName: "div",
+          elementSource: { file: "src/Page.astro", line: 7, column: 5 },
+          components: [],
+          timestamp: Date.now(),
+          snippet,
+        },
+        "{{language}}:{{startLine}}-{{endLine}} target={{targetLine}}\n{{snippet}}"
+      );
+
+      expect(output).toBe("astro:5-9 target=7\n<Card />");
+    });
+
+    it("replaces missing template variables with empty strings", () => {
+      const el = document.createElement("div");
+
+      const output = interpolateTemplate("{{source}} {{unknown}} {{snippet}}", {
+        element: el,
+        tagName: "div",
+        elementSource: null,
+        components: [],
+        timestamp: Date.now(),
+      });
+
+      expect(output).toBe("  ");
+    });
   });
 
   describe("inspect", () => {
@@ -616,6 +683,16 @@ describe("DOM walking", () => {
       expect(ctx.formatted).toContain("--- end astro-grab context ---");
       expect(ctx.formatted).toContain("src/Form.astro:20:3");
       expect(ctx.formatted).toContain('id="submit"');
+    });
+
+    it("uses a custom template for the formatted output", () => {
+      const el = document.createElement("button");
+      el.setAttribute(ATTR_SOURCE, "src/Button.astro:10:5");
+      root.appendChild(el);
+
+      const ctx = inspect(el, "{{tagName}} {{source}}");
+
+      expect(ctx.formatted).toBe("button src/Button.astro:10:5");
     });
   });
 });

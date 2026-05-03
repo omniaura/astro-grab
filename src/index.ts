@@ -28,7 +28,7 @@ let overlay: Overlay;
 let bridge: AgentBridge | null = null;
 let stateMachine: StateMachine;
 let opts: Required<Pick<AstroGrabOptions, "key" | "showToast">> &
-  Pick<AstroGrabOptions, "onGrab" | "agentUrl">;
+  Pick<AstroGrabOptions, "onGrab" | "agentUrl" | "template">;
 let currentTheme: AstroGrabTheme = { ...DEFAULT_ASTRO_GRAB_THEME };
 
 let hoveredEl: HTMLElement | null = null;
@@ -123,7 +123,7 @@ async function onMouseDown(e: MouseEvent) {
   e.stopPropagation();
 
   // Inspect the element
-  const context = inspect(target);
+  const context = inspect(target, opts.template);
 
   // Attempt to fetch a source snippet from the dev server
   if (context.elementSource) {
@@ -132,7 +132,7 @@ async function onMouseDown(e: MouseEvent) {
     if (snippet) {
       context.snippet = snippet;
       // Re-format with the snippet included
-      context.formatted = formatContext(context);
+      context.formatted = formatContext(context, opts.template);
     }
   }
 
@@ -205,7 +205,7 @@ function emitStateChange(state: string) {
 function emitReady() {
   window.dispatchEvent(
     new CustomEvent("astro-grab:ready", {
-      detail: { key: opts.key, theme: currentTheme },
+      detail: { key: opts.key, theme: currentTheme, template: opts.template },
     })
   );
 }
@@ -230,11 +230,17 @@ function onToolbarToggle(e: Event) {
 }
 
 function onToolbarConfigUpdate(e: Event) {
-  const detail = (e as CustomEvent<{ key?: string }>).detail;
-  if (!detail?.key) return;
+  const detail = (e as CustomEvent<{ key?: string; template?: string }>).detail;
+  if (!detail) return;
 
   const validKeys = ["Alt", "Control", "Meta", "Shift"];
-  if (!validKeys.includes(detail.key)) return;
+
+  if (detail.template !== undefined) {
+    opts.template = detail.template || undefined;
+    window.__ASTRO_GRAB__.template = opts.template;
+  }
+
+  if (!detail.key || !validKeys.includes(detail.key)) return;
 
   opts.key = detail.key as "Alt" | "Control" | "Meta" | "Shift";
 
@@ -264,10 +270,12 @@ export function initAstroGrab(options: AstroGrabOptions = {}) {
     showToast: options.showToast ?? true,
     onGrab: options.onGrab,
     agentUrl: options.agentUrl,
+    template: options.template,
   };
   currentTheme = resolveTheme(options.theme);
   if (typeof window !== "undefined") {
     window.__ASTRO_GRAB__.theme = currentTheme;
+    window.__ASTRO_GRAB__.template = opts.template;
   }
 
   // Create state machine and overlay
@@ -336,6 +344,7 @@ export function destroyAstroGrab() {
   currentTheme = { ...DEFAULT_ASTRO_GRAB_THEME };
   if (typeof window !== "undefined") {
     window.__ASTRO_GRAB__.theme = currentTheme;
+    window.__ASTRO_GRAB__.template = undefined;
   }
   document.body.style.cursor = "";
 }
@@ -357,6 +366,7 @@ declare global {
       destroy: typeof destroyAstroGrab;
       inspect: typeof inspect;
       theme: AstroGrabTheme;
+      template?: string;
     };
   }
 }
@@ -367,5 +377,6 @@ if (typeof window !== "undefined") {
     destroy: destroyAstroGrab,
     inspect,
     theme: currentTheme,
+    template: undefined,
   };
 }

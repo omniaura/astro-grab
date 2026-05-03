@@ -134,6 +134,46 @@ function getElementSnippet(el: HTMLElement, maxLen = 200): string {
   return html.slice(0, maxLen) + "...";
 }
 
+function formatSource(source: SourceLocation | null): string {
+  if (!source) return "";
+  return `${source.file}:${source.line}:${source.column}`;
+}
+
+function formatComponentTree(components: ComponentInfo[]): string {
+  return components
+    .map((comp) => {
+      const loc = comp.location ? ` -> ${formatSource(comp.location)}` : "";
+      return `<${comp.name} />${loc}`;
+    })
+    .join("\n");
+}
+
+function getTemplateVariables(ctx: Omit<GrabbedContext, "formatted">): Record<string, string> {
+  return {
+    tagName: ctx.tagName,
+    source: formatSource(ctx.elementSource),
+    components: formatComponentTree(ctx.components),
+    html: getElementSnippet(ctx.element, 500),
+    file: ctx.elementSource?.file ?? ctx.snippet?.file ?? "",
+    line: ctx.elementSource ? String(ctx.elementSource.line) : "",
+    snippet: ctx.snippet?.snippet ?? "",
+    startLine: ctx.snippet ? String(ctx.snippet.startLine) : "",
+    endLine: ctx.snippet ? String(ctx.snippet.endLine) : "",
+    targetLine: ctx.snippet ? String(ctx.snippet.targetLine) : "",
+    language: ctx.snippet?.language ?? "",
+  };
+}
+
+export function interpolateTemplate(
+  template: string,
+  ctx: Omit<GrabbedContext, "formatted">
+): string {
+  const variables = getTemplateVariables(ctx);
+  return template.replace(/\{\{\s*([A-Za-z][A-Za-z0-9_]*)\s*\}\}/g, (_match, key: string) => {
+    return variables[key] ?? "";
+  });
+}
+
 /**
  * Get key attributes of an element as a summary.
  */
@@ -164,7 +204,14 @@ function getElementSummary(el: HTMLElement): string {
 /**
  * Format the full grabbed context into a string for AI agent prompts.
  */
-export function formatContext(ctx: Omit<GrabbedContext, "formatted">): string {
+export function formatContext(
+  ctx: Omit<GrabbedContext, "formatted">,
+  template?: string
+): string {
+  if (template) {
+    return interpolateTemplate(template, ctx);
+  }
+
   const lines: string[] = [];
 
   lines.push("--- astro-grab context ---");
@@ -214,7 +261,7 @@ export function formatContext(ctx: Omit<GrabbedContext, "formatted">): string {
 /**
  * Inspect a DOM element and produce the full GrabbedContext.
  */
-export function inspect(el: HTMLElement): GrabbedContext {
+export function inspect(el: HTMLElement, template?: string): GrabbedContext {
   const elementSource = getElementSource(el) ?? findNearestSource(el);
   const components = getComponentChain(el);
 
@@ -228,6 +275,6 @@ export function inspect(el: HTMLElement): GrabbedContext {
 
   return {
     ...partial,
-    formatted: formatContext(partial),
+    formatted: formatContext(partial, template),
   };
 }
