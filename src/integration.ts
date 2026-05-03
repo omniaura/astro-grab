@@ -31,6 +31,7 @@ export default function astroGrab(
     autoImport = true,
     key = "Alt",
     theme,
+    template,
   } = options;
 
   const resolvedTheme = resolveTheme(theme);
@@ -55,6 +56,7 @@ export default function astroGrab(
               `const storageKey = ${JSON.stringify(STORAGE_KEY)};`,
               `const configuredKey = ${JSON.stringify(key)};`,
               `const configuredTheme = ${JSON.stringify(resolvedTheme)};`,
+              `const configuredTemplate = ${JSON.stringify(template)};`,
               `const validKeys = new Set(["Alt", "Control", "Meta", "Shift"]);`,
               `const readToolbarConfig = () => {`,
               `  try {`,
@@ -68,7 +70,8 @@ export default function astroGrab(
               `};`,
               `const toolbarConfig = readToolbarConfig();`,
               `const activationKey = validKeys.has(toolbarConfig?.key) ? toolbarConfig.key : configuredKey;`,
-              `initAstroGrab({ key: activationKey, theme: configuredTheme });`,
+              `const clipboardTemplate = typeof toolbarConfig?.template === "string" ? toolbarConfig.template : configuredTemplate;`,
+              `initAstroGrab({ key: activationKey, theme: configuredTheme, template: clipboardTemplate });`,
               `if (toolbarConfig?.enabled === false) {`,
               `  const disable = () => {`,
               `    window.dispatchEvent(new CustomEvent("astro-grab:toggle", { detail: { enabled: false } }));`,
@@ -92,6 +95,7 @@ export default function astroGrab(
                 autoImport: false,
                 key,
                 theme: resolvedTheme,
+                template,
               }),
             ],
           },

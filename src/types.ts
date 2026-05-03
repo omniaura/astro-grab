@@ -99,6 +99,12 @@ export interface AstroGrabOptions {
    * Omitted values fall back to the built-in OmniAura theme.
    */
   theme?: Partial<AstroGrabTheme>;
+
+  /**
+   * Clipboard template with `{{variable}}` placeholders.
+   * Omitted value falls back to the built-in astro-grab context format.
+   */
+  template?: string;
 }
 
 // ── Astro integration options ────────────────────────────────────────
@@ -134,6 +140,12 @@ export interface AstroGrabIntegrationOptions {
    * Omitted values fall back to the built-in OmniAura theme.
    */
   theme?: Partial<AstroGrabTheme>;
+
+  /**
+   * Clipboard template passed through to the dev runtime bootstrap.
+   * Omitted value falls back to the built-in astro-grab context format.
+   */
+  template?: string;
 }
 
 // ── Vite plugin options (internal, used by integration) ──────────────
@@ -169,6 +181,12 @@ export interface AstroGrabViteOptions {
    * Omitted values fall back to the built-in OmniAura theme.
    */
   theme?: Partial<AstroGrabTheme>;
+
+  /**
+   * Clipboard template passed through to the dev runtime bootstrap.
+   * Omitted value falls back to the built-in astro-grab context format.
+   */
+  template?: string;
 }
 
 // ── Data attribute names ─────────────────────────────────────────────

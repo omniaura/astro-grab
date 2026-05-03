@@ -20,10 +20,12 @@ import type { AstroGrabTheme } from "./types.js";
 interface ToolbarConfig {
   enabled: boolean;
   key: string;
+  template: string;
 }
 
 interface AstroGrabRuntime {
   theme: AstroGrabTheme;
+  template?: string;
 }
 
 type ActivationKey = "Alt" | "Control" | "Meta" | "Shift";
@@ -33,10 +35,12 @@ type ActivationKey = "Alt" | "Control" | "Meta" | "Shift";
 export const STORAGE_KEY = "astro-grab-toolbar-config";
 
 const ACTIVATION_KEYS: ActivationKey[] = ["Alt", "Control", "Meta", "Shift"];
+const DEFAULT_CLIPBOARD_TEMPLATE = "";
 
 const DEFAULT_CONFIG: ToolbarConfig = {
   enabled: true,
   key: "Alt",
+  template: DEFAULT_CLIPBOARD_TEMPLATE,
 };
 
 // ── SVG Icon ──────────────────────────────────────────────────────────
@@ -55,6 +59,7 @@ const getConfig = (): ToolbarConfig => {
           ...DEFAULT_CONFIG,
           ...parsed,
           key: ACTIVATION_KEYS.includes(parsed.key) ? parsed.key : DEFAULT_CONFIG.key,
+          template: typeof parsed.template === "string" ? parsed.template : DEFAULT_CONFIG.template,
         };
       }
     }
@@ -79,6 +84,12 @@ const dispatchToggle = (enabled: boolean): void => {
 const dispatchConfigUpdate = (key: string): void => {
   window.dispatchEvent(
     new CustomEvent("astro-grab:config-update", { detail: { key } })
+  );
+};
+
+const dispatchTemplateUpdate = (template: string): void => {
+  window.dispatchEvent(
+    new CustomEvent("astro-grab:config-update", { detail: { template } })
   );
 };
 
@@ -209,6 +220,46 @@ export default {
     keySection.appendChild(keyRow);
     keySection.appendChild(currentKeyDisplay);
 
+    // ── Clipboard Template section ──────────────────────────────────
+    const templateSection = document.createElement("div");
+    templateSection.style.cssText = "display: flex; flex-direction: column; gap: 8px;";
+
+    const templateHeader = document.createElement("div");
+    templateHeader.style.cssText =
+      "display: flex; justify-content: space-between; align-items: center; gap: 8px;";
+
+    const templateLabel = document.createElement("div");
+    templateLabel.textContent = "Clipboard Template";
+    templateLabel.style.cssText = "font-size: 13px; font-weight: 500;";
+
+    const resetTemplateButton = document.createElement(
+      "astro-dev-toolbar-button"
+    ) as HTMLElement & { buttonStyle: string; size: string };
+    resetTemplateButton.textContent = "Reset";
+    resetTemplateButton.size = "small";
+    resetTemplateButton.buttonStyle = "ghost";
+    resetTemplateButton.style.cssText = "cursor: pointer;";
+
+    templateHeader.appendChild(templateLabel);
+    templateHeader.appendChild(resetTemplateButton);
+
+    const templateInput = document.createElement("textarea");
+    templateInput.value = config.template;
+    templateInput.placeholder =
+      "{{tagName}}\n{{source}}\n{{components}}\n{{html}}\n{{snippet}}";
+    templateInput.rows = 5;
+    templateInput.style.cssText =
+      "box-sizing: border-box; width: 100%; min-height: 92px; resize: vertical; padding: 8px 10px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; background: rgba(0, 0, 0, 0.22); color: #d1d5db; font: 11px/1.45 monospace; outline: none;";
+
+    const templateHelp = document.createElement("div");
+    templateHelp.textContent =
+      "Variables: tagName, source, components, html, file, line, snippet, startLine, endLine, targetLine, language";
+    templateHelp.style.cssText = "font-size: 11px; color: #9ca3af; line-height: 1.4;";
+
+    templateSection.appendChild(templateHeader);
+    templateSection.appendChild(templateInput);
+    templateSection.appendChild(templateHelp);
+
     // ── Appearance section ──────────────────────────────────────────
     const appearanceSection = document.createElement("div");
     appearanceSection.style.cssText =
@@ -314,6 +365,7 @@ export default {
     // ── Assemble ────────────────────────────────────────────────────
     content.appendChild(enableSection);
     content.appendChild(keySection);
+    content.appendChild(templateSection);
     content.appendChild(appearanceSection);
     content.appendChild(statusSection);
 
@@ -348,6 +400,19 @@ export default {
         stateBadge.style.color = "#d1d5db";
         stateDescription.textContent = "Waiting for activation key";
       }
+    });
+
+    templateInput.addEventListener("input", () => {
+      config.template = templateInput.value;
+      saveConfig(config);
+      dispatchTemplateUpdate(config.template);
+    });
+
+    resetTemplateButton.addEventListener("click", () => {
+      config.template = DEFAULT_CLIPBOARD_TEMPLATE;
+      templateInput.value = config.template;
+      saveConfig(config);
+      dispatchTemplateUpdate(config.template);
     });
 
     // Listen for state machine transitions from the client
@@ -390,6 +455,10 @@ export default {
     // Notify the client runtime to load persisted config on init
     if (config.key !== "Alt") {
       dispatchConfigUpdate(config.key);
+    }
+
+    if (config.template) {
+      dispatchTemplateUpdate(config.template);
     }
   },
 };
