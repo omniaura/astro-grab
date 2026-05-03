@@ -190,9 +190,16 @@ export default function astroGrabVite(
     autoImport = true,
     key = "Alt",
     theme,
+    holdDuration = 0,
   } = options;
 
   const resolvedTheme = resolveTheme(theme);
+  const resolvedHoldDuration =
+    typeof holdDuration === "number" &&
+    Number.isFinite(holdDuration) &&
+    holdDuration >= 0
+      ? holdDuration
+      : 0;
 
   let projectRoot = "";
 
@@ -211,7 +218,7 @@ export default function astroGrabVite(
 
     async load(id) {
       if (id === RESOLVED_VIRTUAL_INIT) {
-        return `import { initAstroGrab } from "@omniaura/astro-grab/client";\ninitAstroGrab({ key: ${JSON.stringify(key)}, theme: ${JSON.stringify(resolvedTheme)} });`;
+        return `import { initAstroGrab } from "@omniaura/astro-grab/client";\ninitAstroGrab({ key: ${JSON.stringify(key)}, theme: ${JSON.stringify(resolvedTheme)}, holdDuration: ${JSON.stringify(resolvedHoldDuration)} });`;
       }
 
       if (!id.endsWith(".astro") || id.includes("node_modules")) {

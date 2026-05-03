@@ -59,6 +59,7 @@ astroGrab({
   componentLocation: true, // Inject data-astro-component (default: true)
   autoImport: true,        // Auto-import runtime in dev (default: true)
   key: "Alt",              // Modifier key: "Alt" | "Control" | "Meta" | "Shift"
+  holdDuration: 0,         // ms to hold key before activation (default: 0 = instant)
   theme: {
     accent: "#bc52ee",     // Optional theme overrides
     surface: "#1a1a2e",
@@ -76,6 +77,7 @@ import { initAstroGrab } from "@omniaura/astro-grab/client";
 initAstroGrab({
   key: "Alt",              // Modifier key (default: "Alt")
   showToast: true,         // Show notification on copy (default: true)
+  holdDuration: 0,         // ms to hold key before activation (default: 0 = instant)
   agentUrl: "ws://...",    // WebSocket URL for agent bridge (optional)
   onGrab: (context) => {}, // Callback, return false to prevent copy
   theme: {
@@ -83,6 +85,10 @@ initAstroGrab({
     surface: "#1a1a2e",
   },
 });
+
+// Set holdDuration > 0 (e.g. 1000) to require holding the key for 1s
+// before targeting activates — useful to prevent accidental activation
+// when the modifier is pressed for unrelated browser shortcuts.
 ```
 
 ### Theme Defaults

@@ -31,9 +31,16 @@ export default function astroGrab(
     autoImport = true,
     key = "Alt",
     theme,
+    holdDuration = 0,
   } = options;
 
   const resolvedTheme = resolveTheme(theme);
+  const resolvedHoldDuration =
+    typeof holdDuration === "number" &&
+    Number.isFinite(holdDuration) &&
+    holdDuration >= 0
+      ? holdDuration
+      : 0;
 
   return {
     name: "astro-grab",
@@ -55,6 +62,7 @@ export default function astroGrab(
               `const storageKey = ${JSON.stringify(STORAGE_KEY)};`,
               `const configuredKey = ${JSON.stringify(key)};`,
               `const configuredTheme = ${JSON.stringify(resolvedTheme)};`,
+              `const configuredHoldDuration = ${JSON.stringify(resolvedHoldDuration)};`,
               `const validKeys = new Set(["Alt", "Control", "Meta", "Shift"]);`,
               `const readToolbarConfig = () => {`,
               `  try {`,
@@ -68,7 +76,9 @@ export default function astroGrab(
               `};`,
               `const toolbarConfig = readToolbarConfig();`,
               `const activationKey = validKeys.has(toolbarConfig?.key) ? toolbarConfig.key : configuredKey;`,
-              `initAstroGrab({ key: activationKey, theme: configuredTheme });`,
+              `const storedHold = toolbarConfig?.holdDuration;`,
+              `const holdDuration = (typeof storedHold === "number" && Number.isFinite(storedHold) && storedHold >= 0) ? storedHold : configuredHoldDuration;`,
+              `initAstroGrab({ key: activationKey, theme: configuredTheme, holdDuration: holdDuration });`,
               `if (toolbarConfig?.enabled === false) {`,
               `  const disable = () => {`,
               `    window.dispatchEvent(new CustomEvent("astro-grab:toggle", { detail: { enabled: false } }));`,
@@ -92,6 +102,7 @@ export default function astroGrab(
                 autoImport: false,
                 key,
                 theme: resolvedTheme,
+                holdDuration: resolvedHoldDuration,
               }),
             ],
           },

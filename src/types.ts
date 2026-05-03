@@ -99,6 +99,16 @@ export interface AstroGrabOptions {
    * Omitted values fall back to the built-in OmniAura theme.
    */
   theme?: Partial<AstroGrabTheme>;
+
+  /**
+   * Milliseconds the activation key must be held before entering targeting mode.
+   * `0` activates instantly on key-down (the default, snappy behavior).
+   * Values greater than `0` arm a timer on key-down; releasing the key before
+   * the timer fires cancels activation. Useful for protecting against
+   * accidental activation when the modifier is pressed for unrelated shortcuts.
+   * @default 0
+   */
+  holdDuration?: number;
 }
 
 // ── Astro integration options ────────────────────────────────────────
@@ -134,6 +144,13 @@ export interface AstroGrabIntegrationOptions {
    * Omitted values fall back to the built-in OmniAura theme.
    */
   theme?: Partial<AstroGrabTheme>;
+
+  /**
+   * Milliseconds the activation key must be held before entering targeting mode.
+   * Passed through to the dev runtime bootstrap.
+   * @default 0
+   */
+  holdDuration?: number;
 }
 
 // ── Vite plugin options (internal, used by integration) ──────────────
@@ -169,6 +186,13 @@ export interface AstroGrabViteOptions {
    * Omitted values fall back to the built-in OmniAura theme.
    */
   theme?: Partial<AstroGrabTheme>;
+
+  /**
+   * Milliseconds the activation key must be held before entering targeting mode.
+   * Passed through to the dev runtime bootstrap.
+   * @default 0
+   */
+  holdDuration?: number;
 }
 
 // ── Data attribute names ─────────────────────────────────────────────
